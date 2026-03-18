@@ -220,10 +220,51 @@ mod_data_loader_server <- function(id, config, rv) {
           rv$baltic_samples <- matched$pid[matched$COAST == "EAST"]
           rv$westcoast_samples <- matched$pid[matched$COAST == "WEST"]
 
-          # Get class list for gallery
-          all_classes <- sort(unique(rv$classifications$class_name))
-          all_classes <- all_classes[all_classes != "unclassified"]
-          rv$class_list <- all_classes
+          # Resolve class list (DB > file > auto-generate from classifications)
+          db_path <- get_db_path(config$db_folder)
+          resolved_classes <- resolve_class_list(
+            db_path, config$class_list_path
+          )
+
+          if (is.null(resolved_classes)) {
+            # Auto-generate from taxa lookup + current classifications
+            all_class_names <- sort(unique(c(
+              taxa_lookup$clean_names,
+              rv$classifications$class_name
+            )))
+            # Ensure "unclassified" is included
+            all_class_names <- unique(c(all_class_names, "unclassified"))
+            resolved_classes <- all_class_names
+
+            # Persist to database
+            save_global_class_list_db(db_path, resolved_classes)
+
+            shiny::showNotification(
+              paste0("Class list auto-generated from taxa lookup (",
+                     length(resolved_classes), " classes). ",
+                     "You can also set a class list file in Settings."),
+              type = "message", duration = 8
+            )
+          }
+
+          rv$class_list <- resolved_classes
+
+          # Warn about unmatched classes
+          observed_classes <- unique(rv$classifications$class_name)
+          unmatched <- setdiff(observed_classes, resolved_classes)
+          if (length(unmatched) > 0) {
+            shiny::showNotification(
+              paste0(length(unmatched), " class(es) in classifications not in ",
+                     "class list: ", paste(utils::head(unmatched, 5),
+                                           collapse = ", "),
+                     if (length(unmatched) > 5) "..."),
+              type = "warning", duration = 10
+            )
+          }
+
+          # Gallery classes (non-biological excluded, unclassified excluded)
+          gallery_classes <- sort(unique(rv$classifications$class_name))
+          gallery_classes <- gallery_classes[gallery_classes != "unclassified"]
           rv$current_class_idx <- 1L
           rv$current_region <- "EAST"
           rv$data_loaded <- TRUE
@@ -231,7 +272,8 @@ mod_data_loader_server <- function(id, config, rv) {
           status(paste0("Data loaded successfully!\n",
                         nrow(matched), " bins, ",
                         length(unique(matched$STATION_NAME)), " stations, ",
-                        length(all_classes), " classes.\n",
+                        length(gallery_classes), " classes, ",
+                        length(resolved_classes), " in class list.\n",
                         "Proceed to 'Validate' tab."))
 
         }, error = function(e) {

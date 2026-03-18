@@ -84,6 +84,17 @@ save_annotations_db <- function(db_path, annotations, annotator = "",
                                 class_list = character(0)) {
   if (nrow(annotations) == 0) return(TRUE)
 
+  # Validate class names against class list
+  if (length(class_list) > 0) {
+    invalid <- setdiff(unique(annotations$class_name), class_list)
+    if (length(invalid) > 0) {
+      warning("Rejected annotations with invalid class names: ",
+              paste(invalid, collapse = ", "), call. = FALSE)
+      annotations <- annotations[annotations$class_name %in% class_list, ]
+      if (nrow(annotations) == 0) return(TRUE)
+    }
+  }
+
   dir.create(dirname(db_path), recursive = TRUE, showWarnings = FALSE)
   con <- DBI::dbConnect(RSQLite::SQLite(), db_path)
   on.exit(DBI::dbDisconnect(con), add = TRUE)
@@ -159,4 +170,117 @@ load_annotations_db <- function(db_path, sample_names = NULL) {
   } else {
     DBI::dbGetQuery(con, "SELECT * FROM annotations")
   }
+}
+
+#' Save global class list to SQLite
+#'
+#' Replaces the contents of the \code{global_class_list} table.
+#' Compatible with ClassiPyR's global_class_list table.
+#'
+#' @param db_path Path to the SQLite database file.
+#' @param class2use Character vector of class names.
+#' @return Logical TRUE on success, FALSE on failure.
+#' @export
+save_global_class_list_db <- function(db_path, class2use) {
+  if (is.null(class2use) || length(class2use) == 0) {
+    return(TRUE)
+  }
+
+  dir.create(dirname(db_path), recursive = TRUE, showWarnings = FALSE)
+  con <- DBI::dbConnect(RSQLite::SQLite(), db_path)
+  on.exit(DBI::dbDisconnect(con), add = TRUE)
+  init_db_schema(con)
+
+  tryCatch({
+    DBI::dbExecute(con, "BEGIN TRANSACTION")
+    DBI::dbExecute(con, "DELETE FROM global_class_list")
+    for (i in seq_along(class2use)) {
+      DBI::dbExecute(con, "
+        INSERT INTO global_class_list (class_index, class_name)
+        VALUES (?, ?)
+      ", params = list(i, class2use[i]))
+    }
+    DBI::dbExecute(con, "COMMIT")
+    TRUE
+  }, error = function(e) {
+    tryCatch(DBI::dbExecute(con, "ROLLBACK"), error = function(re) NULL)
+    warning("Failed to save global class list: ", e$message, call. = FALSE)
+    FALSE
+  })
+}
+
+#' Load global class list from SQLite
+#'
+#' Returns the class list stored in the \code{global_class_list} table,
+#' ordered by class_index. Returns NULL if the table is empty or the
+#' database does not exist.
+#'
+#' @param db_path Path to the SQLite database file.
+#' @return Character vector of class names, or NULL if unavailable.
+#' @export
+load_global_class_list_db <- function(db_path) {
+  if (!file.exists(db_path)) {
+    return(NULL)
+  }
+
+  con <- DBI::dbConnect(RSQLite::SQLite(), db_path)
+  on.exit(DBI::dbDisconnect(con), add = TRUE)
+  init_db_schema(con)
+
+  tryCatch({
+    df <- DBI::dbGetQuery(con,
+      "SELECT class_name FROM global_class_list ORDER BY class_index")
+    if (nrow(df) == 0) NULL else df$class_name
+  }, error = function(e) {
+    warning("Failed to load global class list: ", e$message, call. = FALSE)
+    NULL
+  })
+}
+
+#' Load a class list from a text file
+#'
+#' Reads one class name per line from a \code{.txt} file.
+#'
+#' @param path Path to the class list file.
+#' @return Character vector of class names.
+#' @export
+load_class_list_file <- function(path) {
+  if (!file.exists(path)) {
+    warning("Class list file not found: ", path, call. = FALSE)
+    return(character(0))
+  }
+  classes <- readLines(path, warn = FALSE)
+  classes <- trimws(classes)
+  classes[nzchar(classes)]
+}
+
+#' Resolve the active class list
+#'
+#' Loads the class list using the following priority:
+#' 1. SQLite global_class_list table (if database exists and has entries)
+#' 2. Class list file from settings (if path is set and file exists)
+#' 3. NULL (no class list available)
+#'
+#' @param db_path Path to the SQLite database file.
+#' @param class_list_path Path to a class list text file.
+#' @return Character vector of class names, or NULL.
+#' @export
+resolve_class_list <- function(db_path, class_list_path = "") {
+  # Priority 1: database
+  db_classes <- load_global_class_list_db(db_path)
+  if (!is.null(db_classes) && length(db_classes) > 0) {
+    return(db_classes)
+  }
+
+  # Priority 2: file
+  if (nzchar(class_list_path) && file.exists(class_list_path)) {
+    file_classes <- load_class_list_file(class_list_path)
+    if (length(file_classes) > 0) {
+      # Also persist to database for next time
+      save_global_class_list_db(db_path, file_classes)
+      return(file_classes)
+    }
+  }
+
+  NULL
 }

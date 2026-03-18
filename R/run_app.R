@@ -1,6 +1,6 @@
-#' Run the AlgAware Shiny Application
+#' Launch the AlgAware Shiny Application
 #'
-#' Launch the interactive AlgAware application for IFCB phytoplankton
+#' Start the interactive AlgAware application for IFCB phytoplankton
 #' data processing, validation, and report generation.
 #'
 #' @param ... Additional arguments passed to \code{\link[shiny]{shinyApp}}.
@@ -8,9 +8,9 @@
 #' @export
 #' @examples
 #' \dontrun{
-#'   algaware::run_app()
+#'   algaware::launch_app()
 #' }
-run_app <- function(...) {
+launch_app <- function(...) {
   app_dir <- system.file("app", package = "algaware")
   if (app_dir == "") {
     stop("Could not find app directory. Try re-installing `algaware`.",

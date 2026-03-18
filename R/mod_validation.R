@@ -131,6 +131,17 @@ mod_validation_server <- function(id, rv, config) {
                    class_name = current_class, stringsAsFactors = FALSE)
       }))
 
+      # Validate class against class list before saving
+      if (length(rv$class_list) > 0 &&
+          !current_class %in% rv$class_list) {
+        shiny::showNotification(
+          paste0("'", current_class, "' is not in the class list. ",
+                 "Annotations not saved."),
+          type = "error", duration = 8
+        )
+        return()
+      }
+
       db_path <- get_db_path(config$db_folder)
       success <- save_annotations_db(
         db_path, parsed,
