@@ -15,7 +15,7 @@ Install from GitHub:
 
 ```r
 # install.packages("remotes")
-remotes::install_github("your-org/algaware")
+remotes::install_github("anderstorstensson/algaware")
 ```
 
 ## Usage
