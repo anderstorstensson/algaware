@@ -29,7 +29,8 @@ Imports:
     iRfcb (>= 0.8.1),
     SHARK4R (>= 1.1.0),
     ggrepel,
-    viridis
+    viridis,
+    httr2
 Suggests:
     mockery,
     rnaturalearthdata,

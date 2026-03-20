@@ -13,6 +13,10 @@
 #' @param cruise_info Character string with cruise/date information for title.
 #' @param classifier_name Optional character string with the classifier model
 #'   name used for automated classification.
+#' @param use_llm Logical; if TRUE and OPENAI_API_KEY is set, generate
+#'   report text using an LLM. Default FALSE uses placeholder text.
+#' @param annotator Character string with the analyst name for the
+#'   introduction statement.
 #' @return Invisible path to the created document.
 #' @export
 generate_report <- function(output_path, station_summary,
@@ -21,7 +25,9 @@ generate_report <- function(output_path, station_summary,
                             westcoast_mosaics = list(),
                             taxa_lookup = NULL,
                             cruise_info = "",
-                            classifier_name = NULL) {
+                            classifier_name = NULL,
+                            use_llm = FALSE,
+                            annotator = "") {
   template <- system.file("templates", "report_template.docx",
                           package = "algaware")
   if (!nzchar(template)) {
@@ -47,22 +53,59 @@ generate_report <- function(output_path, station_summary,
   }
   doc <- officer::body_add_par(doc, "")
 
+  # Introduction
+  intro <- paste0(
+    "This report is based on images collected by an Imaging FlowCytobot ",
+    "(IFCB) onboard R/V Svea. Phytoplankton identification is based on ",
+    "automated image classification by an AI model",
+    if (!is.null(classifier_name) && nzchar(classifier_name)) {
+      paste0(" (", classifier_name, ")")
+    } else {
+      ""
+    },
+    ", validated by ",
+    if (nzchar(annotator)) paste0(annotator, ", SMHI") else "SMHI",
+    "."
+  )
+  if (use_llm) {
+    intro <- paste0(
+      intro,
+      " Report text was drafted with the assistance of a large language model ",
+      "and reviewed by ",
+      if (nzchar(annotator)) paste0(annotator, ".") else "the analyst."
+    )
+  }
+  doc <- officer::body_add_par(doc, intro, style = "Normal")
+  doc <- officer::body_add_par(doc, "")
+
   # Swedish summary
   doc <- officer::body_add_par(doc, "Sammanfattning", style = "heading 2")
-  doc <- officer::body_add_par(
-    doc,
-    "[Skriv sammanfattning pa svenska har.]",
-    style = "Normal"
-  )
+  swedish_text <- "[Skriv sammanfattning pa svenska har.]"
+  if (use_llm) {
+    swedish_text <- tryCatch(
+      generate_swedish_summary(station_summary, taxa_lookup, cruise_info),
+      error = function(e) {
+        warning("LLM Swedish summary failed: ", e$message, call. = FALSE)
+        "[Skriv sammanfattning pa svenska har. (LLM generation failed)]"
+      }
+    )
+  }
+  doc <- add_formatted_par(doc, swedish_text, taxa_lookup, style = "Normal")
   doc <- officer::body_add_par(doc, "")
 
   # English summary
   doc <- officer::body_add_par(doc, "Summary", style = "heading 2")
-  doc <- officer::body_add_par(
-    doc,
-    "[Write English summary here.]",
-    style = "Normal"
-  )
+  english_text <- "[Write English summary here.]"
+  if (use_llm) {
+    english_text <- tryCatch(
+      generate_english_summary(station_summary, taxa_lookup, cruise_info),
+      error = function(e) {
+        warning("LLM English summary failed: ", e$message, call. = FALSE)
+        "[Write English summary here. (LLM generation failed)]"
+      }
+    )
+  }
+  doc <- add_formatted_par(doc, english_text, taxa_lookup, style = "Normal")
   doc <- officer::body_add_par(doc, "")
 
   # Biomass maps
@@ -117,7 +160,7 @@ generate_report <- function(output_path, station_summary,
   temp_files <- result$temp_files
 
   # Station sections
-  doc <- add_station_sections(doc, station_summary)
+  doc <- add_station_sections(doc, station_summary, taxa_lookup, use_llm)
 
   # Image mosaics
   hab_species <- get_hab_species(taxa_lookup)
@@ -197,11 +240,12 @@ add_stacked_bar_section <- function(doc, wide_data, taxa_lookup, title,
 
 #' Add station report sections to document
 #' @keywords internal
-add_station_sections <- function(doc, station_summary) {
+add_station_sections <- function(doc, station_summary,
+                                 taxa_lookup = NULL, use_llm = FALSE) {
   doc <- officer::body_add_par(doc, "Station Reports", style = "heading 2")
 
   visits <- unique(station_summary[, c("STATION_NAME", "STATION_NAME_SHORT",
-                                       "COAST", "visit_date")])
+                                       "COAST", "visit_date", "visit_id")])
   visits <- visits[order(visits$COAST, visits$visit_date,
                          visits$STATION_NAME), ]
 
@@ -216,11 +260,24 @@ add_station_sections <- function(doc, station_summary) {
     station_header <- paste0(visits$STATION_NAME_SHORT[i], " - ",
                              visits$visit_date[i])
     doc <- officer::body_add_par(doc, station_header, style = "heading 3")
-    doc <- officer::body_add_par(
-      doc,
-      "[Write station description here.]",
-      style = "Normal"
-    )
+
+    description <- "[Write station description here.]"
+    if (use_llm) {
+      station_data <- station_summary[
+        station_summary$visit_id == visits$visit_id[i], ]
+      description <- tryCatch(
+        generate_station_description(station_data, taxa_lookup,
+                                     station_summary),
+        error = function(e) {
+          warning("LLM station description failed for ",
+                  visits$STATION_NAME_SHORT[i], ": ", e$message,
+                  call. = FALSE)
+          "[Write station description here. (LLM generation failed)]"
+        }
+      )
+    }
+
+    doc <- add_formatted_par(doc, description, taxa_lookup, style = "Normal")
     doc <- officer::body_add_par(doc, "")
   }
   doc

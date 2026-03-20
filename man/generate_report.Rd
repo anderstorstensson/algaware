@@ -12,7 +12,9 @@ generate_report(
   baltic_mosaics = list(),
   westcoast_mosaics = list(),
   taxa_lookup = NULL,
-  cruise_info = ""
+  cruise_info = "",
+  classifier_name = NULL,
+  use_llm = FALSE
 )
 }
 \arguments{
@@ -31,6 +33,12 @@ generate_report(
 \item{taxa_lookup}{Optional taxa lookup table with \code{HAB} column.}
 
 \item{cruise_info}{Character string with cruise/date information for title.}
+
+\item{classifier_name}{Optional character string with the classifier model
+name used for automated classification.}
+
+\item{use_llm}{Logical; if TRUE and OPENAI_API_KEY is set, generate
+report text using an LLM. Default FALSE uses placeholder text.}
 }
 \value{
 Invisible path to the created document.

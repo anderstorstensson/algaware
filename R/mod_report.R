@@ -8,6 +8,7 @@ mod_report_ui <- function(id) {
   shiny::tagList(
     shiny::hr(),
     shiny::h5("Report Generation"),
+    shiny::uiOutput(ns("llm_status")),
     shiny::actionButton(ns("make_report"), "Make Report",
                         class = "btn-primary",
                         icon = shiny::icon("file-word")),
@@ -31,6 +32,26 @@ mod_report_server <- function(id, rv, config) {
     ns <- session$ns
     report_path <- shiny::reactiveVal(NULL)
     corrections_path <- shiny::reactiveVal(NULL)
+
+    output$llm_status <- shiny::renderUI({
+      if (llm_available()) {
+        shiny::tagList(
+          shiny::checkboxInput(ns("use_llm"), "AI text generation",
+                               value = TRUE),
+          shiny::div(
+            style = "font-size: 11px; color: #198754; margin-top: -10px; margin-bottom: 6px;",
+            shiny::icon("robot"),
+            " API key detected"
+          )
+        )
+      } else {
+        shiny::div(
+          style = "font-size: 11px; color: #6c757d; margin-bottom: 6px;",
+          shiny::icon("pencil"),
+          " Manual text mode (set OPENAI_API_KEY for AI text)"
+        )
+      }
+    })
 
     shiny::observeEvent(input$make_report, {
       shiny::req(rv$data_loaded, rv$station_summary)
@@ -89,13 +110,23 @@ mod_report_server <- function(id, rv, config) {
                                        format(Sys.time(), "%Y%m%d_%H%M%S"),
                                        ".docx"))
 
+          use_llm <- llm_available() && isTRUE(input$use_llm)
+
+          shiny::incProgress(0, detail = if (use_llm) {
+            "Generating AI text and building document..."
+          } else {
+            "Building Word document..."
+          })
+
           generate_report(
             out_file, station_summary,
             baltic_wide, westcoast_wide,
             baltic_mosaics, westcoast_mosaics,
             taxa_lookup = taxa_lookup,
             cruise_info = rv$cruise_info,
-            classifier_name = rv$classifier_name
+            classifier_name = rv$classifier_name,
+            use_llm = use_llm,
+            annotator = config$annotator
           )
 
           report_path(out_file)
