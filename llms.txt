@@ -15,7 +15,7 @@ Install from GitHub:
 
 ``` r
 # install.packages("remotes")
-remotes::install_github("anderstorstensson/algaware")
+remotes::install_github("anderstorstensson/shiny-ifcb-algaware")
 ```
 
 ## Usage
@@ -59,6 +59,8 @@ The application opens in your default browser.
 ### Report Generation
 
 - Automated Word document (.docx) with all plots and station sections
+- AI-generated summaries and station descriptions via OpenAI or Google
+  Gemini
 - Image mosaics for top taxa per region (adaptive layout for chains vs.
   compact organisms)
 - HAB species annotations throughout
@@ -83,6 +85,19 @@ be edited through the in-app Settings panel:
 
 Extra monitoring stations can be added from the SHARK station register
 through the Settings panel.
+
+### LLM Configuration
+
+Set one of the following environment variables to enable AI-generated
+report text (summaries and station descriptions):
+
+| Variable         | Provider                                  |
+|------------------|-------------------------------------------|
+| `OPENAI_API_KEY` | OpenAI (default: gpt-4.1)                 |
+| `GEMINI_API_KEY` | Google Gemini (default: gemini-2.5-flash) |
+
+Override the model with `OPENAI_MODEL` or `GEMINI_MODEL`. When both keys
+are set, OpenAI is used by default.
 
 ## Bundled Data
 
@@ -110,6 +125,7 @@ through the Settings panel.
     │   ├── mosaics.R              # Adaptive image mosaics
     │   ├── stations.R             # Station matching
     │   ├── report.R               # Word document builder
+    │   ├── llm.R                  # LLM integration (OpenAI/Gemini)
     │   └── utils.R                # Settings and utilities
     ├── inst/
     │   ├── app/                   # Shiny app (ui.R, server.R)

@@ -93,7 +93,7 @@ footer {
 <p>Install from GitHub:</p>
 <div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># install.packages("remotes")</span></span>
-<span><span class="fu">remotes</span><span class="fu">::</span><span class="fu">install_github</span><span class="op">(</span><span class="st">"anderstorstensson/algaware"</span><span class="op">)</span></span></code></pre></div>
+<span><span class="fu">remotes</span><span class="fu">::</span><span class="fu">install_github</span><span class="op">(</span><span class="st">"anderstorstensson/shiny-ifcb-algaware"</span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level2">
 <h2 id="usage">Usage<a class="anchor" aria-label="anchor" href="#usage"></a>
@@ -150,6 +150,7 @@ footer {
 </h3>
 <ul>
 <li>Automated Word document (.docx) with all plots and station sections</li>
+<li>AI-generated summaries and station descriptions via OpenAI or Google Gemini</li>
 <li>Image mosaics for top taxa per region (adaptive layout for chains vs. compact organisms)</li>
 <li>HAB species annotations throughout</li>
 <li>Classifier model attribution</li>
@@ -216,6 +217,28 @@ footer {
 </tbody>
 </table>
 <p>Extra monitoring stations can be added from the SHARK station register through the Settings panel.</p>
+<div class="section level3">
+<h3 id="llm-configuration">LLM Configuration<a class="anchor" aria-label="anchor" href="#llm-configuration"></a>
+</h3>
+<p>Set one of the following environment variables to enable AI-generated report text (summaries and station descriptions):</p>
+<table class="table">
+<thead><tr class="header">
+<th>Variable</th>
+<th>Provider</th>
+</tr></thead>
+<tbody>
+<tr class="odd">
+<td><code>OPENAI_API_KEY</code></td>
+<td>OpenAI (default: gpt-4.1)</td>
+</tr>
+<tr class="even">
+<td><code>GEMINI_API_KEY</code></td>
+<td>Google Gemini (default: gemini-2.5-flash)</td>
+</tr>
+</tbody>
+</table>
+<p>Override the model with <code>OPENAI_MODEL</code> or <code>GEMINI_MODEL</code>. When both keys are set, OpenAI is used by default.</p>
+</div>
 </div>
 <div class="section level2">
 <h2 id="bundled-data">Bundled Data<a class="anchor" aria-label="anchor" href="#bundled-data"></a>
@@ -247,6 +270,7 @@ footer {
 │   ├── mosaics.R              # Adaptive image mosaics
 │   ├── stations.R             # Station matching
 │   ├── report.R               # Word document builder
+│   ├── llm.R                  # LLM integration (OpenAI/Gemini)
 │   └── utils.R                # Settings and utilities
 ├── inst/
 │   ├── app/                   # Shiny app (ui.R, server.R)
