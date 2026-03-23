@@ -44,8 +44,9 @@ generate_report(
 \item{classifier_name}{Optional character string with the classifier model
 name used for automated classification.}
 
-\item{use_llm}{Logical; if TRUE and OPENAI_API_KEY is set, generate
-report text using an LLM. Default FALSE uses placeholder text.}
+\item{use_llm}{Logical; if TRUE and an LLM API key is configured
+(OPENAI_API_KEY or GEMINI_API_KEY), generate report text using an
+LLM. Default FALSE uses placeholder text.}
 
 \item{annotator}{Character string with the analyst name for the
 introduction statement.}

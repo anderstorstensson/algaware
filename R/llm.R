@@ -1,7 +1,7 @@
 #' LLM Text Generation for AlgAware Reports
 #'
-#' Functions for generating report text using OpenAI-compatible APIs.
-#' Requires the OPENAI_API_KEY environment variable to be set.
+#' Functions for generating report text using OpenAI or Google Gemini.
+#' Requires either OPENAI_API_KEY or GEMINI_API_KEY to be set.
 #'
 #' @name llm
 NULL
@@ -397,7 +397,7 @@ call_openai <- function(system_prompt, user_prompt,
 #'
 #' @param system_prompt System prompt string.
 #' @param user_prompt User prompt string.
-#' @param model Gemini model name (default: "gemini-2.5-pro").
+#' @param model Gemini model name (default: "gemini-2.5-flash").
 #' @param temperature Sampling temperature (default: 0.3).
 #' @return Character string with the generated text.
 #' @keywords internal

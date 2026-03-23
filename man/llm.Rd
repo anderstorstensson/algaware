@@ -4,6 +4,6 @@
 \alias{llm}
 \title{LLM Text Generation for AlgAware Reports}
 \description{
-Functions for generating report text using OpenAI-compatible APIs.
-Requires the OPENAI_API_KEY environment variable to be set.
+Functions for generating report text using OpenAI or Google Gemini.
+Requires either OPENAI_API_KEY or GEMINI_API_KEY to be set.
 }

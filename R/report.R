@@ -13,8 +13,9 @@
 #' @param cruise_info Character string with cruise/date information for title.
 #' @param classifier_name Optional character string with the classifier model
 #'   name used for automated classification.
-#' @param use_llm Logical; if TRUE and OPENAI_API_KEY is set, generate
-#'   report text using an LLM. Default FALSE uses placeholder text.
+#' @param use_llm Logical; if TRUE and an LLM API key is configured
+#'   (OPENAI_API_KEY or GEMINI_API_KEY), generate report text using an
+#'   LLM. Default FALSE uses placeholder text.
 #' @param annotator Character string with the analyst name for the
 #'   introduction statement.
 #' @param image_counts Optional data frame from \code{fetch_image_counts()}
