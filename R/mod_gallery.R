@@ -289,10 +289,19 @@ mod_gallery_server <- function(id, rv, config) {
         }
       }
 
+      # Check if class is in the database class list
+      not_in_db <- length(rv$class_list) > 0 &&
+        !current_class %in% rv$class_list
+
       shiny::div(
         class = "class-header",
         if (is_hab) shiny::span(class = "badge-hab", "HAB"),
         if (is_non_bio) shiny::span(class = "badge-nonbio", "Non-biological"),
+        if (not_in_db) shiny::span(
+          class = "badge bg-secondary",
+          style = "font-size: 0.75em; margin-right: 4px;",
+          "Not in DB"
+        ),
         if (!is.null(name_display)) name_display,
         shiny::br(),
         shiny::span(

@@ -12,18 +12,21 @@
 #' @param pixels_per_micron Conversion factor from pixels to microns.
 #'   Default 2.77, which is the optical calibration constant for the standard
 #'   IFCB instrument. Different IFCB units may use slightly different values.
+#' @param custom_classes Optional data frame of custom classes with an
+#'   \code{is_diatom} column. Used to extend diatom identification.
 #' @return A data.frame with per-sample, per-class biovolume data joined with
 #'   taxonomy.
 #' @export
 summarize_biovolumes <- function(feature_folder, hdr_folder, classifications,
                                  taxa_lookup, non_bio_classes = character(0),
-                                 pixels_per_micron = 2.77) {
+                                 pixels_per_micron = 2.77,
+                                 custom_classes = NULL) {
   # Build image name (sample_NNNNN format)
   image_names <- paste0(classifications$sample_name, "_",
                         sprintf("%05d", classifications$roi_number))
 
-  # Identify diatom classes from taxa lookup
-  diatom_classes <- identify_diatom_classes(taxa_lookup)
+  # Identify diatom classes from taxa lookup and custom classes
+  diatom_classes <- identify_diatom_classes(taxa_lookup, custom_classes)
 
   biovolume_data <- iRfcb::ifcb_summarize_biovolumes(
     feature_folder = feature_folder,
@@ -62,7 +65,7 @@ summarize_biovolumes <- function(feature_folder, hdr_folder, classifications,
 #' @param taxa_lookup A data.frame with \code{clean_names} column.
 #' @return Character vector of class names likely to be diatoms.
 #' @keywords internal
-identify_diatom_classes <- function(taxa_lookup) {
+identify_diatom_classes <- function(taxa_lookup, custom_classes = NULL) {
   # Genus-level patterns for diatom taxa (Bacillariophyta)
   diatom_patterns <- c(
     "Navicula", "Actinocyclus", "Achnanthes", "Proboscia", "rhizosolenia",
@@ -76,7 +79,16 @@ identify_diatom_classes <- function(taxa_lookup) {
   )
 
   pattern <- paste(diatom_patterns, collapse = "|")
-  taxa_lookup$clean_names[grepl(pattern, taxa_lookup$clean_names)]
+  diatoms <- taxa_lookup$clean_names[grepl(pattern, taxa_lookup$clean_names)]
+
+  # Include custom classes flagged as diatoms
+  if (!is.null(custom_classes) && nrow(custom_classes) > 0 &&
+      "is_diatom" %in% names(custom_classes)) {
+    custom_diatoms <- custom_classes$clean_names[custom_classes$is_diatom]
+    diatoms <- unique(c(diatoms, custom_diatoms))
+  }
+
+  diatoms
 }
 
 #' Compute representative visit dates

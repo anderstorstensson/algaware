@@ -10,7 +10,8 @@ summarize_biovolumes(
   classifications,
   taxa_lookup,
   non_bio_classes = character(0),
-  pixels_per_micron = 2.77
+  pixels_per_micron = 2.77,
+  custom_classes = NULL
 )
 }
 \arguments{
@@ -29,6 +30,9 @@ exclude.}
 \item{pixels_per_micron}{Conversion factor from pixels to microns.
 Default 2.77, which is the optical calibration constant for the standard
 IFCB instrument. Different IFCB units may use slightly different values.}
+
+\item{custom_classes}{Optional data frame of custom classes with an
+\code{is_diatom} column. Used to extend diatom identification.}
 }
 \value{
 A data.frame with per-sample, per-class biovolume data joined with

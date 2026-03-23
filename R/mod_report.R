@@ -76,14 +76,15 @@ mod_report_server <- function(id, rv, config) {
           shiny::incProgress(0.1, detail = "Reprocessing with corrections...")
 
           non_bio <- parse_non_bio_classes(config$non_biological_classes)
-          taxa_lookup <- rv$taxa_lookup
+          taxa_lookup <- merge_custom_taxa(rv$taxa_lookup, rv$custom_classes)
           storage <- config$local_storage_path
 
           biovolume_data <- summarize_biovolumes(
             file.path(storage, "features"),
             file.path(storage, "raw"),
             rv$classifications, taxa_lookup, non_bio,
-            pixels_per_micron = config$pixels_per_micron
+            pixels_per_micron = config$pixels_per_micron,
+            custom_classes = rv$custom_classes
           )
 
           station_summary <- aggregate_station_data(

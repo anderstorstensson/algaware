@@ -367,6 +367,11 @@ mod_data_loader_server <- function(id, config, rv) {
             )
           }
 
+          # Build extended relabel choices (DB + taxa lookup + custom)
+          rv$relabel_choices <- build_relabel_choices(
+            rv$class_list, rv$taxa_lookup, rv$custom_classes
+          )
+
           # Warn about unmatched classes
           observed_classes <- unique(rv$classifications$class_name)
           unmatched <- setdiff(observed_classes, rv$class_list)

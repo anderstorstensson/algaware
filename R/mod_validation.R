@@ -19,7 +19,10 @@ mod_validation_ui <- function(id) {
                           icon = shiny::icon("arrows-rotate")),
       shiny::actionButton(ns("invalidate_class"), "Invalidate Class",
                           class = "btn-warning btn-sm",
-                          icon = shiny::icon("ban"))
+                          icon = shiny::icon("ban")),
+      shiny::actionButton(ns("add_custom_class"), "Add Custom Class",
+                          class = "btn-outline-secondary btn-sm",
+                          icon = shiny::icon("plus"))
     ),
     shiny::hr(),
     shiny::uiOutput(ns("validation_status"))
@@ -116,8 +119,9 @@ mod_validation_server <- function(id, rv, config) {
       if (length(rv$class_list) > 0 &&
           !ctx$current_class %in% rv$class_list) {
         shiny::showNotification(
-          paste0("'", ctx$current_class, "' is not in the class list. ",
-                 "Annotations not saved."),
+          paste0("'", ctx$current_class, "' is not in the database class ",
+                 "list. Only database classes can be saved as annotations. ",
+                 "This class may be from the taxa lookup or a custom class."),
           type = "error", duration = 8
         )
         return()
@@ -155,10 +159,12 @@ mod_validation_server <- function(id, rv, config) {
       shiny::req(length(rv$selected_images) > 0)
 
       ctx <- get_region_context(rv)
-      target_choices <- if (is.null(ctx$current_class)) {
-        rv$class_list
-      } else {
-        setdiff(rv$class_list, ctx$current_class)
+      grouped <- rv$relabel_choices$grouped
+      if (!is.null(ctx$current_class)) {
+        grouped <- lapply(grouped, function(cls) {
+          setdiff(cls, ctx$current_class)
+        })
+        grouped <- Filter(function(x) length(x) > 0, grouped)
       }
 
       shiny::showModal(shiny::modalDialog(
@@ -169,7 +175,7 @@ mod_validation_server <- function(id, rv, config) {
           "This only affects the current session (not stored in database)."
         )),
         shiny::selectizeInput(ns("relabel_selected_target"), "Target class",
-                              choices = target_choices,
+                              choices = grouped,
                               options = list(
                                 placeholder = "Type to search...",
                                 maxOptions = 500
@@ -229,8 +235,11 @@ mod_validation_server <- function(id, rv, config) {
       ctx <- get_region_context(rv)
       if (is.null(ctx$current_class)) return()
 
-      # Build target choices from class list, excluding current class
-      target_choices <- setdiff(rv$class_list, ctx$current_class)
+      # Build target choices from extended list, excluding current class
+      grouped <- lapply(rv$relabel_choices$grouped, function(cls) {
+        setdiff(cls, ctx$current_class)
+      })
+      grouped <- Filter(function(x) length(x) > 0, grouped)
 
       n_images <- sum(
         rv$classifications$class_name == ctx$current_class &
@@ -245,7 +254,7 @@ mod_validation_server <- function(id, rv, config) {
           " to a different class."
         )),
         shiny::selectizeInput(ns("relabel_target"), "Target class",
-                              choices = target_choices,
+                              choices = grouped,
                               options = list(
                                 placeholder = "Type to search...",
                                 maxOptions = 500
@@ -347,6 +356,79 @@ mod_validation_server <- function(id, rv, config) {
       shiny::showNotification(
         paste0("Invalidated '", ctx$current_class, "' (", sum(mask),
                " images)"),
+        type = "message"
+      )
+    })
+
+    # ---- 5. Add Custom Class (session-only) ----
+    shiny::observeEvent(input$add_custom_class, {
+      shiny::showModal(shiny::modalDialog(
+        title = "Add Custom Class",
+        shiny::p(
+          "Add a class not in the database or taxa lookup. ",
+          "Custom classes are session-only and cannot be saved to the database, ",
+          "but will appear in corrections exports and reports."
+        ),
+        shiny::textInput(ns("custom_clean_name"), "Class name (identifier)",
+                         placeholder = "e.g. Genus_species"),
+        shiny::textInput(ns("custom_sci_name"), "Scientific name (display)",
+                         placeholder = "e.g. Genus species"),
+        shiny::numericInput(ns("custom_aphia_id"), "AphiaID (WoRMS)", value = NA,
+                            min = 1),
+        shiny::checkboxInput(ns("custom_hab"), "Potentially harmful (HAB)", FALSE),
+        shiny::checkboxInput(ns("custom_italic"), "Italicize name", TRUE),
+        shiny::checkboxInput(ns("custom_is_diatom"), "Is diatom", FALSE),
+        footer = shiny::tagList(
+          shiny::actionButton(ns("confirm_custom_class"), "Add",
+                              class = "btn-primary"),
+          shiny::modalButton("Cancel")
+        )
+      ))
+    })
+
+    shiny::observeEvent(input$confirm_custom_class, {
+      clean_name <- trimws(input$custom_clean_name)
+      sci_name <- trimws(input$custom_sci_name)
+      aphia_id <- input$custom_aphia_id
+
+      if (!nzchar(clean_name)) {
+        shiny::showNotification("Class name is required.", type = "error")
+        return()
+      }
+
+      # Check for duplicates across all sources
+      all_existing <- c(
+        rv$class_list,
+        if (!is.null(rv$taxa_lookup)) rv$taxa_lookup$clean_names,
+        rv$custom_classes$clean_names
+      )
+      if (clean_name %in% all_existing) {
+        shiny::showNotification(
+          paste0("'", clean_name, "' already exists in the class list."),
+          type = "error"
+        )
+        return()
+      }
+
+      new_row <- data.frame(
+        clean_names = clean_name,
+        name = sci_name,
+        AphiaID = if (is.na(aphia_id)) NA_integer_ else as.integer(aphia_id),
+        HAB = isTRUE(input$custom_hab),
+        italic = isTRUE(input$custom_italic),
+        is_diatom = isTRUE(input$custom_is_diatom),
+        stringsAsFactors = FALSE
+      )
+      rv$custom_classes <- rbind(rv$custom_classes, new_row)
+
+      # Rebuild relabel choices
+      rv$relabel_choices <- build_relabel_choices(
+        rv$class_list, rv$taxa_lookup, rv$custom_classes
+      )
+
+      shiny::removeModal()
+      shiny::showNotification(
+        paste0("Added custom class '", clean_name, "'"),
         type = "message"
       )
     })

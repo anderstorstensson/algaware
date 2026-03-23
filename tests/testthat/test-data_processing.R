@@ -247,3 +247,41 @@ test_that("create_wide_summary orders columns by date then station", {
   expect_true(grepl("2022-01-01", data_cols[1]))
   expect_true(grepl("2022-01-02", data_cols[2]))
 })
+
+# -- identify_diatom_classes with custom_classes ---------------------------
+
+test_that("identify_diatom_classes detects known diatom patterns", {
+  taxa <- data.frame(
+    clean_names = c("Skeletonema_marinoi", "Chaetoceros_spp", "Dinophysis"),
+    stringsAsFactors = FALSE
+  )
+  result <- identify_diatom_classes(taxa)
+  expect_true("Skeletonema_marinoi" %in% result)
+  expect_true("Chaetoceros_spp" %in% result)
+  expect_false("Dinophysis" %in% result)
+})
+
+test_that("identify_diatom_classes includes custom diatoms", {
+  taxa <- data.frame(
+    clean_names = c("Skeletonema_marinoi", "Dinophysis"),
+    stringsAsFactors = FALSE
+  )
+  custom <- data.frame(
+    clean_names = c("MyDiatom", "MyDino"),
+    is_diatom = c(TRUE, FALSE),
+    stringsAsFactors = FALSE
+  )
+  result <- identify_diatom_classes(taxa, custom)
+  expect_true("MyDiatom" %in% result)
+  expect_false("MyDino" %in% result)
+  expect_true("Skeletonema_marinoi" %in% result)
+})
+
+test_that("identify_diatom_classes works without custom_classes", {
+  taxa <- data.frame(
+    clean_names = c("Thalassiosira_spp"),
+    stringsAsFactors = FALSE
+  )
+  result <- identify_diatom_classes(taxa, NULL)
+  expect_equal(result, "Thalassiosira_spp")
+})

@@ -4,7 +4,7 @@
 \alias{identify_diatom_classes}
 \title{Identify diatom classes from taxa lookup}
 \usage{
-identify_diatom_classes(taxa_lookup)
+identify_diatom_classes(taxa_lookup, custom_classes = NULL)
 }
 \arguments{
 \item{taxa_lookup}{A data.frame with \code{clean_names} column.}

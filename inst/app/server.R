@@ -33,6 +33,18 @@ server <- function(input, output, session) {
     cruise_info         = "",            # Human-readable cruise description
     classifier_name     = NULL,          # Name of the AI classifier model
 
+    # -- Extended class list for relabeling --
+    relabel_choices     = list(),         # Grouped choices for relabel dropdowns
+    custom_classes = data.frame(          # User-added custom classes (session-only)
+      clean_names = character(0),
+      name        = character(0),
+      AphiaID     = integer(0),
+      HAB         = logical(0),
+      italic      = logical(0),
+      is_diatom   = logical(0),
+      stringsAsFactors = FALSE
+    ),
+
     # -- Gallery & validation state (shared between modules) --
     current_class_idx   = 1L,            # Index into the current region's class list
     current_region      = "EAST",        # "EAST" (Baltic) or "WEST" (West Coast)
