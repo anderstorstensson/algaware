@@ -199,6 +199,96 @@ compute_median_color <- function(img_list) {
   })
 }
 
+#' Get top taxa by total biovolume from a wide summary
+#'
+#' @param wide_summary Wide-format summary from \code{create_wide_summary()}.
+#' @param n_taxa Number of top taxa to return. Default 10.
+#' @return Character vector of scientific names ordered by descending biovolume.
+#' @export
+get_top_taxa <- function(wide_summary, n_taxa = 10L) {
+  data_cols <- names(wide_summary)[-1]
+  if (length(data_cols) == 0) return(character(0))
+  totals <- rowSums(wide_summary[, data_cols, drop = FALSE], na.rm = TRUE)
+  idx <- order(totals, decreasing = TRUE)
+  utils::head(wide_summary$scientific_name[idx], n_taxa)
+}
+
+#' Get ROI information for a specific taxon in a set of samples
+#'
+#' @param classifications Classification data.frame with \code{sample_name},
+#'   \code{roi_number}, \code{class_name}.
+#' @param taxa_lookup Taxa lookup table.
+#' @param taxon_name Scientific name of the taxon.
+#' @param sample_ids Character vector of sample PIDs to search within.
+#' @return A data.frame subset of classifications matching the taxon.
+#' @export
+get_taxon_rois <- function(classifications, taxa_lookup, taxon_name,
+                           sample_ids) {
+  matching_classes <- taxa_lookup$clean_names[taxa_lookup$name == taxon_name]
+  classifications[
+    classifications$class_name %in% matching_classes &
+      classifications$sample_name %in% sample_ids,
+  ]
+}
+
+#' Extract a single random image for a taxon
+#'
+#' Picks one random ROI from the given taxon and extracts it as a PNG file.
+#'
+#' @param taxon_name Scientific name of the taxon.
+#' @param classifications Classification data.frame.
+#' @param taxa_lookup Taxa lookup table.
+#' @param sample_ids Character vector of sample PIDs.
+#' @param raw_data_path Path to raw data (for .roi files).
+#' @param temp_dir Temporary directory for extracted PNGs.
+#' @param exclude_rois Optional data.frame with \code{sample_name} and
+#'   \code{roi_number} columns to exclude from selection.
+#' @return A list with \code{path}, \code{taxon}, \code{sample_name},
+#'   \code{roi_number}, and \code{n_available}, or NULL if no image found.
+#' @export
+extract_random_taxon_image <- function(taxon_name, classifications, taxa_lookup,
+                                       sample_ids, raw_data_path, temp_dir,
+                                       exclude_rois = NULL) {
+  rois <- get_taxon_rois(classifications, taxa_lookup, taxon_name, sample_ids)
+  if (nrow(rois) == 0) return(NULL)
+
+  # Exclude previously seen ROIs if requested
+
+  if (!is.null(exclude_rois) && nrow(exclude_rois) > 0) {
+    key <- paste(rois$sample_name, rois$roi_number)
+    excl_key <- paste(exclude_rois$sample_name, exclude_rois$roi_number)
+    rois <- rois[!key %in% excl_key, ]
+    if (nrow(rois) == 0) return(NULL)
+  }
+
+  idx <- sample(nrow(rois), 1)
+  samp <- rois$sample_name[idx]
+  roi_num <- rois$roi_number[idx]
+
+  roi_file <- list.files(raw_data_path, pattern = paste0(samp, "\\.roi$"),
+                         recursive = TRUE, full.names = TRUE)
+  if (length(roi_file) == 0) return(NULL)
+
+  out_folder <- file.path(temp_dir, "frontpage_extracted")
+  tryCatch(
+    iRfcb::ifcb_extract_pngs(roi_file[1], out_folder, ROInumbers = roi_num,
+                              verbose = FALSE),
+    error = function(e) return(NULL)
+  )
+
+  expected <- file.path(out_folder, samp,
+                        paste0(samp, "_", sprintf("%05d", roi_num), ".png"))
+  if (!file.exists(expected)) return(NULL)
+
+  list(
+    path = expected,
+    taxon = taxon_name,
+    sample_name = samp,
+    roi_number = roi_num,
+    n_available = nrow(rois)
+  )
+}
+
 #' Create mosaics for top taxa in a region
 #'
 #' Extracts PNGs from .roi files and creates mosaic images for the top N taxa

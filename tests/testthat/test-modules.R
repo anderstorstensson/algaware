@@ -22,3 +22,8 @@ test_that("mod_report_ui returns tag", {
   ui <- mod_report_ui("test")
   expect_s3_class(ui, "shiny.tag")
 })
+
+test_that("mod_frontpage_ui returns tag", {
+  ui <- mod_frontpage_ui("test")
+  expect_s3_class(ui, "shiny.tag")
+})

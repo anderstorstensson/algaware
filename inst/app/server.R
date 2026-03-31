@@ -57,6 +57,10 @@ server <- function(input, output, session) {
       stringsAsFactors = FALSE
     ),
 
+    # -- Front page mosaics (set by mod_frontpage) --
+    frontpage_baltic_mosaic   = NULL,    # Magick image for front page Baltic mosaic
+    frontpage_westcoast_mosaic = NULL,   # Magick image for front page West Coast mosaic
+
     # -- App state flag --
     data_loaded = FALSE                  # TRUE once data loading completes
   )
@@ -89,7 +93,52 @@ server <- function(input, output, session) {
   mod_data_loader_server("data_loader", config, rv)
   mod_gallery_server("gallery", rv, config)
   mod_validation_server("validation", rv, config)
+  mod_frontpage_server("frontpage", rv, config)
   mod_report_server("report", rv, config)
+
+  # ---------------------------------------------------------------------------
+  # Recompute summaries when classifications change (reclassification)
+  #
+  # rv$classifications is reassigned (not mutated) by the validation module,
+  # so Shiny reactivity detects changes. We skip the initial assignment from
+  # data loading by comparing against rv$classifications_raw.
+  # ---------------------------------------------------------------------------
+  observeEvent(rv$classifications, {
+    req(rv$data_loaded, rv$classifications_raw, rv$matched_metadata)
+
+    # Skip if classifications haven't changed from the original
+    if (identical(rv$classifications, rv$classifications_raw)) return()
+
+    id <- showNotification("Updating summaries...", type = "message",
+                           duration = NULL, closeButton = FALSE)
+    on.exit(removeNotification(id), add = TRUE)
+
+    non_bio <- parse_non_bio_classes(config$non_biological_classes)
+    taxa_lookup <- merge_custom_taxa(rv$taxa_lookup, rv$custom_classes)
+    storage <- config$local_storage_path
+
+    biovolume_data <- summarize_biovolumes(
+      file.path(storage, "features"),
+      file.path(storage, "raw"),
+      rv$classifications, taxa_lookup, non_bio,
+      pixels_per_micron = config$pixels_per_micron,
+      custom_classes = rv$custom_classes
+    )
+
+    station_summary <- aggregate_station_data(
+      biovolume_data, rv$matched_metadata
+    )
+
+    # Re-attach ferrybox chlorophyll data
+    if (!is.null(rv$ferrybox_chl)) {
+      station_summary <- merge(station_summary, rv$ferrybox_chl,
+                               by = "STATION_NAME", all.x = TRUE)
+    }
+
+    rv$station_summary <- station_summary
+    rv$baltic_wide <- create_wide_summary(station_summary, "EAST")
+    rv$westcoast_wide <- create_wide_summary(station_summary, "WEST")
+  })
 
   # Cached biomass maps (invalidates when station_summary changes)
   biomass_maps <- reactive({

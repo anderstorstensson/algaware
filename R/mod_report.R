@@ -164,7 +164,9 @@ mod_report_server <- function(id, rv, config) {
             llm_model = if (use_llm) llm_model_name(selected_provider) else NULL,
             n_station_samples = n_stn_samples,
             llm_provider = selected_provider,
-            on_llm_progress = llm_progress
+            on_llm_progress = llm_progress,
+            frontpage_baltic_mosaic = rv$frontpage_baltic_mosaic,
+            frontpage_westcoast_mosaic = rv$frontpage_westcoast_mosaic
           )
 
           report_path(out_file)

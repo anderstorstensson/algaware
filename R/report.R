@@ -1,7 +1,8 @@
 #' Generate the AlgAware Word report
 #'
 #' Creates a Word document with biomass maps, heatmaps, stacked bar charts,
-#' station sections, and image mosaics.
+#' station sections, and image mosaics. Optionally includes a front page with
+#' logo, diary number placeholder, and two summary mosaics.
 #'
 #' @param output_path Path for the output .docx file.
 #' @param station_summary Aggregated station data.
@@ -31,6 +32,11 @@
 #' @param on_llm_progress Optional callback function called before each LLM
 #'   request with arguments \code{(step, total, detail)} for progress
 #'   reporting.
+#' @param frontpage_baltic_mosaic Optional magick image for the front page
+#'   Baltic Sea mosaic. If NULL (together with West Coast), no front page
+#'   is generated.
+#' @param frontpage_westcoast_mosaic Optional magick image for the front page
+#'   West Coast mosaic.
 #' @return Invisible path to the created document.
 #' @export
 generate_report <- function(output_path, station_summary,
@@ -47,7 +53,9 @@ generate_report <- function(output_path, station_summary,
                             llm_model = NULL,
                             n_station_samples = NULL,
                             llm_provider = NULL,
-                            on_llm_progress = NULL) {
+                            on_llm_progress = NULL,
+                            frontpage_baltic_mosaic = NULL,
+                            frontpage_westcoast_mosaic = NULL) {
   template <- system.file("templates", "report_template.docx",
                           package = "algaware")
   if (!nzchar(template)) {
@@ -61,6 +69,16 @@ generate_report <- function(output_path, station_summary,
   on.exit(unlink(cleanup$files), add = TRUE)
 
   doc <- officer::read_docx(template)
+
+  # Front page (optional: only when at least one frontpage mosaic is provided)
+  has_frontpage <- !is.null(frontpage_baltic_mosaic) ||
+    !is.null(frontpage_westcoast_mosaic)
+
+  if (has_frontpage) {
+    doc <- add_front_page(doc, frontpage_baltic_mosaic,
+                          frontpage_westcoast_mosaic, cleanup)
+    doc <- officer::body_add_break(doc, value = "page")
+  }
 
   # Logo header
   logo_path <- system.file("templates", "ALGAWARE_title.PNG", package = "algaware")
@@ -454,6 +472,64 @@ add_mosaic_section <- function(doc, mosaics, hab_species, region_label,
     doc <- officer::body_add_par(doc, "")
     mosaic_num <- mosaic_num + 1L
   }
+
+  doc
+}
+
+#' Add front page to the report
+#'
+#' Inserts the report front page with logo, diary number placeholder, and
+#' two summary mosaics (Baltic Sea and West Coast).
+#'
+#' @param doc An rdocx object.
+#' @param baltic_mosaic Optional magick image for Baltic Sea.
+#' @param westcoast_mosaic Optional magick image for West Coast.
+#' @param cleanup Environment with a \code{files} character vector.
+#' @return The modified rdocx object.
+#' @keywords internal
+add_front_page <- function(doc, baltic_mosaic, westcoast_mosaic, cleanup) {
+  # Logo
+
+  logo_path <- system.file("templates", "ALGAWARE_title.PNG",
+                           package = "algaware")
+  if (nzchar(logo_path)) {
+    doc <- officer::body_add_img(doc, logo_path, width = 6,
+                                 height = 6 * 106 / 859)
+  }
+
+  # Diary number placeholder
+  doc <- officer::body_add_par(doc, "")
+  doc <- officer::body_add_par(doc, "Dnr: XXXX-XXXX", style = "Normal")
+  doc <- officer::body_add_par(doc, "")
+
+  # Helper to add a frontpage mosaic with region label
+  add_fp_mosaic <- function(doc, mosaic, label) {
+    if (is.null(mosaic)) return(doc)
+
+    doc <- officer::body_add_par(doc, label, style = "heading 3")
+
+    mosaic_file <- tempfile(fileext = ".png")
+    magick::image_write(mosaic, mosaic_file)
+    cleanup$files <- c(cleanup$files, mosaic_file)
+
+    info <- magick::image_info(mosaic)
+    # Scale to fit page width (max 6 inches), preserving aspect ratio
+    display_width <- min(6, info$width / 300)
+    display_height <- display_width * info$height / info$width
+    # Cap height to leave room for both mosaics on the page
+    if (display_height > 3.5) {
+      display_height <- 3.5
+      display_width <- display_height * info$width / info$height
+    }
+
+    doc <- officer::body_add_img(doc, mosaic_file,
+                                 width = display_width,
+                                 height = display_height)
+    doc
+  }
+
+  doc <- add_fp_mosaic(doc, baltic_mosaic, "Baltic Sea")
+  doc <- add_fp_mosaic(doc, westcoast_mosaic, "West Coast")
 
   doc
 }

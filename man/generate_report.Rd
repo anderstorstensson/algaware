@@ -21,7 +21,9 @@ generate_report(
   llm_model = NULL,
   n_station_samples = NULL,
   llm_provider = NULL,
-  on_llm_progress = NULL
+  on_llm_progress = NULL,
+  frontpage_baltic_mosaic = NULL,
+  frontpage_westcoast_mosaic = NULL
 )
 }
 \arguments{
@@ -69,11 +71,19 @@ matched to AlgAware stations.}
 \item{on_llm_progress}{Optional callback function called before each LLM
 request with arguments \code{(step, total, detail)} for progress
 reporting.}
+
+\item{frontpage_baltic_mosaic}{Optional magick image for the front page
+Baltic Sea mosaic. If NULL (together with West Coast), no front page
+is generated.}
+
+\item{frontpage_westcoast_mosaic}{Optional magick image for the front page
+West Coast mosaic.}
 }
 \value{
 Invisible path to the created document.
 }
 \description{
 Creates a Word document with biomass maps, heatmaps, stacked bar charts,
-station sections, and image mosaics.
+station sections, and image mosaics. Optionally includes a front page with
+logo, diary number placeholder, and two summary mosaics.
 }

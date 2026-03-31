@@ -59,6 +59,23 @@ ui <- bslib::page_sidebar(
     ),
 
     bslib::nav_panel(
+      "Front Page",
+      icon = shiny::icon("file-image"),
+      conditionalPanel(
+        condition = "!output.data_loaded",
+        div(class = "empty-state",
+          shiny::icon("file-image"),
+          h4("No data available"),
+          p("Load data using the sidebar to design the front page mosaic.")
+        )
+      ),
+      conditionalPanel(
+        condition = "output.data_loaded",
+        mod_frontpage_ui("frontpage")
+      )
+    ),
+
+    bslib::nav_panel(
       "Maps",
       icon = shiny::icon("map"),
       conditionalPanel(
