@@ -24,7 +24,10 @@ generate_report(
   on_llm_progress = NULL,
   frontpage_baltic_mosaic = NULL,
   frontpage_westcoast_mosaic = NULL,
-  unclassified_fractions = NULL
+  unclassified_fractions = NULL,
+  frontpage_baltic_taxa = NULL,
+  frontpage_westcoast_taxa = NULL,
+  report_number = NULL
 )
 }
 \arguments{
@@ -79,6 +82,14 @@ is generated.}
 
 \item{frontpage_westcoast_mosaic}{Optional magick image for the front page
 West Coast mosaic.}
+
+\item{frontpage_baltic_taxa}{Optional character vector of taxa names
+matching the numbered images in the Baltic mosaic (for captions).}
+
+\item{frontpage_westcoast_taxa}{Optional character vector of taxa names
+matching the numbered images in the West Coast mosaic.}
+
+\item{report_number}{Optional report issue number (e.g. \code{"1"}).}
 }
 \value{
 Invisible path to the created document.

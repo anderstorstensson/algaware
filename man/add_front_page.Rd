@@ -4,22 +4,36 @@
 \alias{add_front_page}
 \title{Add front page to the report}
 \usage{
-add_front_page(doc, baltic_mosaic, westcoast_mosaic, cleanup)
+add_front_page(
+  doc,
+  cleanup,
+  taxa_lookup = NULL,
+  cruise_info = "",
+  report_number = NULL,
+  image_counts = NULL
+)
 }
 \arguments{
 \item{doc}{An rdocx object.}
 
-\item{baltic_mosaic}{Optional magick image for Baltic Sea.}
-
-\item{westcoast_mosaic}{Optional magick image for West Coast.}
-
 \item{cleanup}{Environment with a \code{files} character vector.}
+
+\item{taxa_lookup}{Optional taxa lookup table with \code{italic} column.}
+
+\item{cruise_info}{Cruise information string (e.g. "RV Svea March cruise,
+2026-03-15 to 2026-03-22").}
+
+\item{report_number}{Optional report issue number (e.g. "1").}
+
+\item{image_counts}{Optional image counts data for the cruise track map.}
 }
 \value{
 The modified rdocx object.
 }
 \description{
-Inserts the report front page with logo, diary number placeholder, and
-two summary mosaics (Baltic Sea and West Coast).
+Inserts a professional cover page with the AlgAware logo, report title,
+issue number, diary number placeholder, cruise information, and cruise
+track map. Mosaics are placed on the following page via
+\code{add_mosaic_overview()}.
 }
 \keyword{internal}

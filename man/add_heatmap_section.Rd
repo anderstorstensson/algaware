@@ -2,7 +2,7 @@
 % Please edit documentation in R/report.R
 \name{add_heatmap_section}
 \alias{add_heatmap_section}
-\title{Add a heatmap section to the report}
+\title{Add a heatmap section to the report (own page)}
 \usage{
 add_heatmap_section(
   doc,
@@ -15,6 +15,6 @@ add_heatmap_section(
 )
 }
 \description{
-Add a heatmap section to the report
+Add a heatmap section to the report (own page)
 }
 \keyword{internal}

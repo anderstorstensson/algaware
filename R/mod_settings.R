@@ -74,7 +74,10 @@ mod_settings_server <- function(id, config) {
             shiny::numericInput(ns("n_mosaic_images"),
                                 "Images per mosaic",
                                 value = config$n_mosaic_images,
-                                min = 4, max = 100)
+                                min = 4, max = 100),
+            shiny::checkboxInput(ns("include_class_mosaics"),
+                                 "Include per-class mosaics in report",
+                                 value = isTRUE(config$include_class_mosaics))
           ),
           shiny::column(6,
             shiny::h5("Storage & Classes"),
@@ -158,6 +161,7 @@ mod_settings_server <- function(id, config) {
       config$pixels_per_micron <- ppm
       config$n_mosaic_taxa <- n_taxa
       config$n_mosaic_images <- n_imgs
+      config$include_class_mosaics <- isTRUE(input$include_class_mosaics)
 
       save_settings(shiny::reactiveValuesToList(config))
       shiny::removeModal()

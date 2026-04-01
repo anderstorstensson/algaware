@@ -9,6 +9,8 @@ mod_report_ui <- function(id) {
     class = "report-section",
     shiny::hr(),
     shiny::h5("Report Generation"),
+    shiny::textInput(ns("report_number"), "Report No",
+                     placeholder = "e.g. 1"),
     shiny::uiOutput(ns("llm_status")),
     shiny::actionButton(ns("make_report"), "Make Report",
                         class = "btn-primary mb-1",
@@ -100,25 +102,59 @@ mod_report_server <- function(id, rv, config) {
           baltic_wide <- create_wide_summary(station_summary, "EAST")
           westcoast_wide <- create_wide_summary(station_summary, "WEST")
 
-          # Create mosaics
-          shiny::incProgress(0.3, detail = "Creating mosaics...")
+          # Create per-class mosaics (optional, off by default)
+          baltic_mosaics <- list()
+          westcoast_mosaics <- list()
+          if (isTRUE(config$include_class_mosaics)) {
+            shiny::incProgress(0.3, detail = "Creating mosaics...")
 
-          baltic_mosaics <- create_region_mosaics(
-            baltic_wide, rv$classifications, rv$baltic_samples,
-            file.path(storage, "raw"), taxa_lookup,
-            n_taxa = config$n_mosaic_taxa,
-            n_images = config$n_mosaic_images
-          )
+            baltic_mosaics <- create_region_mosaics(
+              baltic_wide, rv$classifications, rv$baltic_samples,
+              file.path(storage, "raw"), taxa_lookup,
+              n_taxa = config$n_mosaic_taxa,
+              n_images = config$n_mosaic_images
+            )
 
-          westcoast_mosaics <- create_region_mosaics(
-            westcoast_wide, rv$classifications, rv$westcoast_samples,
-            file.path(storage, "raw"), taxa_lookup,
-            n_taxa = config$n_mosaic_taxa,
-            n_images = config$n_mosaic_images
-          )
+            westcoast_mosaics <- create_region_mosaics(
+              westcoast_wide, rv$classifications, rv$westcoast_samples,
+              file.path(storage, "raw"), taxa_lookup,
+              n_taxa = config$n_mosaic_taxa,
+              n_images = config$n_mosaic_images
+            )
+          }
+
+          # Auto-generate frontpage mosaics if not manually created
+          shiny::incProgress(0.1, detail = "Preparing front page...")
+
+          fp_baltic_mosaic <- rv$frontpage_baltic_mosaic
+          fp_baltic_taxa <- rv$frontpage_baltic_taxa
+          fp_westcoast_mosaic <- rv$frontpage_westcoast_mosaic
+          fp_westcoast_taxa <- rv$frontpage_westcoast_taxa
+
+          if (is.null(fp_baltic_mosaic) && length(rv$baltic_samples) > 0) {
+            result <- generate_frontpage_mosaic(
+              rv$classifications, taxa_lookup, rv$baltic_samples,
+              file.path(storage, "raw"), non_bio
+            )
+            if (!is.null(result)) {
+              fp_baltic_mosaic <- result$mosaic
+              fp_baltic_taxa <- result$taxa
+            }
+          }
+
+          if (is.null(fp_westcoast_mosaic) && length(rv$westcoast_samples) > 0) {
+            result <- generate_frontpage_mosaic(
+              rv$classifications, taxa_lookup, rv$westcoast_samples,
+              file.path(storage, "raw"), non_bio
+            )
+            if (!is.null(result)) {
+              fp_westcoast_mosaic <- result$mosaic
+              fp_westcoast_taxa <- result$taxa
+            }
+          }
 
           # Generate report
-          shiny::incProgress(0.3, detail = "Building Word document...")
+          shiny::incProgress(0.2, detail = "Building Word document...")
 
           out_file <- file.path(tempdir(),
                                 paste0("algaware_report_",
@@ -170,9 +206,12 @@ mod_report_server <- function(id, rv, config) {
             n_station_samples = n_stn_samples,
             llm_provider = selected_provider,
             on_llm_progress = llm_progress,
-            frontpage_baltic_mosaic = rv$frontpage_baltic_mosaic,
-            frontpage_westcoast_mosaic = rv$frontpage_westcoast_mosaic,
-            unclassified_fractions = unclassified_fractions
+            frontpage_baltic_mosaic = fp_baltic_mosaic,
+            frontpage_westcoast_mosaic = fp_westcoast_mosaic,
+            unclassified_fractions = unclassified_fractions,
+            frontpage_baltic_taxa = fp_baltic_taxa,
+            frontpage_westcoast_taxa = fp_westcoast_taxa,
+            report_number = input$report_number
           )
 
           report_path(out_file)

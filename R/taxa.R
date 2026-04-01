@@ -69,7 +69,7 @@ build_relabel_choices <- function(db_class_list = character(0),
 #' @param custom_classes Data frame with the same columns plus
 #'   \code{is_diatom}.
 #' @return A new data frame combining both inputs (without duplicates).
-#' @keywords internal
+#' @export
 merge_custom_taxa <- function(taxa_lookup, custom_classes) {
   if (is.null(custom_classes) || nrow(custom_classes) == 0) {
     return(taxa_lookup)

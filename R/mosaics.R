@@ -11,25 +11,44 @@
 #' @param max_height_px Maximum mosaic height in pixels. Default 1500
 #'   (approximately half an A4 page at 300 dpi). Images are dropped to
 #'   stay within this limit.
+#' @param max_cols Maximum images per row, or \code{NULL} (default) to
+#'   auto-detect from median aspect ratio.  Set to a high value (e.g.
+#'   \code{Inf}) to pack purely by width.
+#' @param labels Optional character vector of labels (e.g. sequence numbers)
+#'   to annotate on each image.  Must be the same length as
+#'   \code{image_paths}.  Labels are drawn after resizing so font size is
+#'   consistent.
 #' @return A \code{magick} image object.
 #' @export
 create_mosaic <- function(image_paths, n_images = 32L,
                           max_width_px = 1800L, target_height = 120L,
-                          max_height_px = 1500L) {
+                          max_height_px = 1500L, max_cols = NULL,
+                          labels = NULL) {
   if (length(image_paths) == 0) {
     stop("No images provided for mosaic", call. = FALSE)
   }
 
-  imgs_sample <- if (length(image_paths) > n_images) {
-    sample(image_paths, n_images)
+  if (length(image_paths) > n_images) {
+    idx <- sample(length(image_paths), n_images)
+    imgs_sample <- image_paths[idx]
+    if (!is.null(labels)) labels <- labels[idx]
   } else {
-    image_paths
+    imgs_sample <- image_paths
   }
 
   # Read and resize to target height
   img_list <- lapply(imgs_sample, function(p) {
     magick::image_resize(magick::image_read(p), paste0("x", target_height))
   })
+
+  # Annotate images with labels (e.g. sequence numbers) after resize
+  if (!is.null(labels)) {
+    font_size <- max(16L, as.integer(target_height * 0.28))
+    img_list <- mapply(function(img, lbl) {
+      magick::image_annotate(img, lbl, size = font_size, color = "black",
+                             location = "+3+1", weight = 700)
+    }, img_list, labels, SIMPLIFY = FALSE)
+  }
 
   # Compute median background color
   median_col <- compute_median_color(img_list)
@@ -42,54 +61,75 @@ create_mosaic <- function(image_paths, n_images = 32L,
   # Adaptive grid layout based on image shape:
   # Chain-forming diatoms produce very wide (elongated) images, while round
   # cells are more compact. The median aspect ratio determines how many
-  # images we try to fit per row.
-  aspect_ratios <- widths / target_height
-  median_aspect <- stats::median(aspect_ratios)
-
-  tile_cols <- if (median_aspect > 4) {
-    1L   # Very elongated (e.g. long chains) -> one image per row
-  } else if (median_aspect > 2.5) {
-    2L   # Moderately elongated -> two per row
-  } else if (median_aspect > 1.5) {
-    3L   # Slightly wide -> three per row
+  # images we try to fit per row.  When max_cols is supplied the heuristic
+  # is bypassed (useful for mixed-taxa mosaics where width alone suffices).
+  if (!is.null(max_cols)) {
+    tile_cols <- max_cols
   } else {
-    4L   # Compact/round cells -> four per row
+    aspect_ratios <- widths / target_height
+    median_aspect <- stats::median(aspect_ratios)
+    tile_cols <- if (median_aspect > 4) {
+      1L
+    } else if (median_aspect > 2.5) {
+      2L
+    } else if (median_aspect > 1.5) {
+      3L
+    } else {
+      4L
+    }
   }
 
-  # Adjust: ensure row width doesn't exceed max_width_px
-  # Sort images by width descending for better packing
+  # Sort images by width descending
   ord <- order(widths, decreasing = TRUE)
   img_list <- img_list[ord]
   widths <- widths[ord]
 
-  # Build rows greedily: add images left-to-right until the row is full
-  # (either max columns reached or pixel width exceeded), then start a new row.
-  # 4px gap between images within a row, 2px gap between rows.
-  rows <- list()
-  width_rows <- list()
-  current_row <- list()
-  current_widths <- numeric(0)
-  current_width <- 0
+  # Determine the minimum number of rows needed, accounting for 4px gaps
+  total_content_width <- sum(widths) + max(0, (length(widths) - 1)) * 4
+  n_rows <- max(1L, ceiling(total_content_width / max_width_px))
+
+  # Distribute images across rows using Longest Processing Time (LPT)
+  # scheduling: assign each image (widest first) to the row with the
+  # smallest current total.  This balances row widths and minimises grey.
+  rows <- vector("list", n_rows)
+  width_rows <- vector("list", n_rows)
+  row_totals <- rep(0, n_rows)
+  for (k in seq_len(n_rows)) {
+    rows[[k]] <- list()
+    width_rows[[k]] <- numeric(0)
+  }
 
   for (i in seq_along(img_list)) {
-    gap <- if (length(current_row) > 0) 4 else 0
-    if (length(current_row) >= tile_cols ||
-        (current_width + widths[i] + gap > max_width_px && length(current_row) > 0)) {
-      rows <- c(rows, list(current_row))
-      width_rows <- c(width_rows, list(current_widths))
-      current_row <- list(img_list[[i]])
-      current_widths <- widths[i]
-      current_width <- widths[i]
+    w <- widths[i]
+
+    # Find the row with the least total width that can still accept this image
+    # (respects both tile_cols and max_width_px constraints)
+    candidates <- which(
+      vapply(rows, length, integer(1)) < tile_cols &
+        row_totals + w + ifelse(vapply(rows, length, integer(1)) > 0, 4, 0) <=
+          max_width_px
+    )
+
+    if (length(candidates) == 0) {
+      # Need an extra row
+      rows <- c(rows, list(list(img_list[[i]])))
+      width_rows <- c(width_rows, list(w))
+      row_totals <- c(row_totals, w)
+      n_rows <- n_rows + 1L
     } else {
-      current_row <- c(current_row, list(img_list[[i]]))
-      current_widths <- c(current_widths, widths[i])
-      current_width <- current_width + widths[i] + gap
+      # Pick the lightest row among valid candidates
+      best <- candidates[which.min(row_totals[candidates])]
+      gap <- if (length(rows[[best]]) > 0) 4 else 0
+      rows[[best]] <- c(rows[[best]], list(img_list[[i]]))
+      width_rows[[best]] <- c(width_rows[[best]], w)
+      row_totals[best] <- row_totals[best] + w + gap
     }
   }
-  if (length(current_row) > 0) {
-    rows <- c(rows, list(current_row))
-    width_rows <- c(width_rows, list(current_widths))
-  }
+
+  # Drop any empty rows (can happen when n_rows was overestimated)
+  non_empty <- vapply(rows, function(r) length(r) > 0, logical(1))
+  rows <- rows[non_empty]
+  width_rows <- width_rows[non_empty]
 
   # Limit total mosaic height so it fits on approximately half an A4 page
   row_height_with_gap <- target_height + 2  # 2px vertical gap between rows
@@ -371,4 +411,65 @@ create_region_mosaics <- function(wide_summary, classifications, sample_ids,
   }
 
   mosaics
+}
+
+#' Generate a numbered frontpage mosaic
+#'
+#' Extracts one random image per top taxon, annotates each with a sequence
+#' number, and composes them into a single mosaic.  Returns the mosaic image
+#' together with the ordered taxa names for a figure caption.
+#'
+#' @param classifications Classification data.frame.
+#' @param taxa_lookup Taxa lookup table.
+#' @param samples Character vector of sample PIDs for this region.
+#' @param raw_data_path Path to raw data directory (contains .roi files).
+#' @param non_bio Character vector of non-biological class names to exclude.
+#' @param n_images Number of taxa/images to include. Default 15.
+#' @param temp_dir Temporary directory for extracted PNGs.
+#' @return A list with \code{mosaic} (magick image) and \code{taxa}
+#'   (character vector of taxa in numbered order), or \code{NULL}.
+#' @export
+generate_frontpage_mosaic <- function(classifications, taxa_lookup, samples,
+                                      raw_data_path, non_bio,
+                                      n_images = 15L,
+                                      temp_dir = tempdir()) {
+  region_class <- classifications[classifications$sample_name %in% samples, ]
+  region_class <- region_class[!region_class$class_name %in% non_bio, ]
+
+  name_map <- stats::setNames(taxa_lookup$name, taxa_lookup$clean_names)
+  sci_names <- name_map[region_class$class_name]
+  sci_names <- sci_names[!is.na(sci_names)]
+  if (length(sci_names) == 0) return(NULL)
+
+  top_taxa <- utils::head(names(sort(table(sci_names), decreasing = TRUE)),
+                          n_images)
+
+  fp_dir <- file.path(temp_dir, "algaware_frontpage_auto")
+  dir.create(fp_dir, recursive = TRUE, showWarnings = FALSE)
+
+  images <- list()
+  for (taxon in top_taxa) {
+    img_info <- extract_random_taxon_image(
+      taxon, classifications, taxa_lookup, samples, raw_data_path, fp_dir
+    )
+    if (!is.null(img_info)) images[[taxon]] <- img_info
+  }
+  if (length(images) == 0) return(NULL)
+
+  paths <- vapply(images, function(img) img$path, character(1))
+  exists_mask <- file.exists(paths)
+  paths <- paths[exists_mask]
+  taxa_names <- names(images)[exists_mask]
+  if (length(paths) == 0) return(NULL)
+
+  mosaic <- tryCatch(
+    create_mosaic(paths, n_images = length(paths),
+                  max_width_px = 1800L, target_height = 120L,
+                  max_height_px = 1100L, max_cols = Inf,
+                  labels = as.character(seq_along(paths))),
+    error = function(e) NULL
+  )
+  if (is.null(mosaic)) return(NULL)
+
+  list(mosaic = mosaic, taxa = taxa_names)
 }

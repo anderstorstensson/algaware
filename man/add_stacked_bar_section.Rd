@@ -2,11 +2,11 @@
 % Please edit documentation in R/report.R
 \name{add_stacked_bar_section}
 \alias{add_stacked_bar_section}
-\title{Add a stacked bar section to the report}
+\title{Add a stacked bar chart to the report (no page break, added by caller)}
 \usage{
 add_stacked_bar_section(doc, wide_data, taxa_lookup, title, fig_num, cleanup)
 }
 \description{
-Add a stacked bar section to the report
+Add a stacked bar chart to the report (no page break, added by caller)
 }
 \keyword{internal}

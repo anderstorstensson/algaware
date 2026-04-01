@@ -20,4 +20,3 @@ A new data frame combining both inputs (without duplicates).
 Appends custom class entries to a taxa lookup data frame for use
 in report generation. Only adds classes not already present.
 }
-\keyword{internal}

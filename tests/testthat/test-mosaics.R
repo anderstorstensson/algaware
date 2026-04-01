@@ -241,7 +241,30 @@ test_that("create_mosaic handles mixed aspect ratio images", {
 
 # --- add_front_page ---
 
-test_that("add_front_page adds logo, dnr, and mosaics to document", {
+test_that("add_front_page adds logo and dnr to document", {
+  template <- system.file("templates", "report_template.docx",
+                          package = "algaware")
+  skip_if(!nzchar(template), "Report template not available")
+
+  doc <- officer::read_docx(template)
+  cleanup <- new.env(parent = emptyenv())
+  cleanup$files <- character(0)
+
+  doc <- algaware:::add_front_page(doc, cleanup,
+                                   cruise_info = "RV Svea March cruise, 2026-03-08 to 2026-03-14",
+                                   report_number = "1")
+
+  out <- tempfile(fileext = ".docx")
+  on.exit({
+    unlink(out)
+    unlink(cleanup$files)
+  }, add = TRUE)
+  print(doc, target = out)
+  expect_true(file.exists(out))
+  expect_true(file.size(out) > 0)
+})
+
+test_that("add_mosaic_overview adds mosaics to document", {
   template <- system.file("templates", "report_template.docx",
                           package = "algaware")
   skip_if(!nzchar(template), "Report template not available")
@@ -253,9 +276,10 @@ test_that("add_front_page adds logo, dnr, and mosaics to document", {
   baltic <- magick::image_blank(600, 200, color = "lightblue")
   west <- magick::image_blank(600, 200, color = "lightyellow")
 
-  doc <- algaware:::add_front_page(doc, baltic, west, cleanup)
+  doc <- algaware:::add_mosaic_overview(doc, baltic, west, cleanup,
+                                        baltic_taxa = c("Taxon A", "Taxon B"),
+                                        westcoast_taxa = c("Taxon C"))
 
-  # Write and verify the doc is valid
   out <- tempfile(fileext = ".docx")
   on.exit({
     unlink(out)
@@ -266,7 +290,7 @@ test_that("add_front_page adds logo, dnr, and mosaics to document", {
   expect_true(file.size(out) > 0)
 })
 
-test_that("add_front_page works with only one mosaic", {
+test_that("add_mosaic_overview works with only one mosaic", {
   template <- system.file("templates", "report_template.docx",
                           package = "algaware")
   skip_if(!nzchar(template), "Report template not available")
@@ -277,7 +301,7 @@ test_that("add_front_page works with only one mosaic", {
 
   baltic <- magick::image_blank(600, 200, color = "lightblue")
 
-  doc <- algaware:::add_front_page(doc, baltic, NULL, cleanup)
+  doc <- algaware:::add_mosaic_overview(doc, baltic, NULL, cleanup)
 
   out <- tempfile(fileext = ".docx")
   on.exit({

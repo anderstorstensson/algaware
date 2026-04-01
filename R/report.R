@@ -37,6 +37,11 @@
 #'   is generated.
 #' @param frontpage_westcoast_mosaic Optional magick image for the front page
 #'   West Coast mosaic.
+#' @param frontpage_baltic_taxa Optional character vector of taxa names
+#'   matching the numbered images in the Baltic mosaic (for captions).
+#' @param frontpage_westcoast_taxa Optional character vector of taxa names
+#'   matching the numbered images in the West Coast mosaic.
+#' @param report_number Optional report issue number (e.g. \code{"1"}).
 #' @return Invisible path to the created document.
 #' @export
 generate_report <- function(output_path, station_summary,
@@ -56,7 +61,10 @@ generate_report <- function(output_path, station_summary,
                             on_llm_progress = NULL,
                             frontpage_baltic_mosaic = NULL,
                             frontpage_westcoast_mosaic = NULL,
-                            unclassified_fractions = NULL) {
+                            unclassified_fractions = NULL,
+                            frontpage_baltic_taxa = NULL,
+                            frontpage_westcoast_taxa = NULL,
+                            report_number = NULL) {
   template <- system.file("templates", "report_template.docx",
                           package = "algaware")
   if (!nzchar(template)) {
@@ -69,6 +77,9 @@ generate_report <- function(output_path, station_summary,
   cleanup$files <- character(0)
   on.exit(unlink(cleanup$files), add = TRUE)
 
+  # Centered paragraph property used for all figures
+  center_pp <- officer::fp_par(text.align = "center")
+
   doc <- officer::read_docx(template)
 
   # Front page (optional: only when at least one frontpage mosaic is provided)
@@ -76,24 +87,43 @@ generate_report <- function(output_path, station_summary,
     !is.null(frontpage_westcoast_mosaic)
 
   if (has_frontpage) {
-    doc <- add_front_page(doc, frontpage_baltic_mosaic,
-                          frontpage_westcoast_mosaic, cleanup)
-    doc <- officer::body_add_break(doc, value = "page")
+    doc <- add_front_page(doc, cleanup,
+                          taxa_lookup = taxa_lookup,
+                          cruise_info = cruise_info,
+                          report_number = report_number,
+                          image_counts = image_counts)
+
+    # End front page section (no header/footer, no page number)
+    doc <- officer::body_end_block_section(doc, officer::block_section(
+      officer::prop_section(type = "nextPage")
+    ))
+
+    # Mosaic overview page (page 2)
+    doc <- add_mosaic_overview(doc, frontpage_baltic_mosaic,
+                               frontpage_westcoast_mosaic, cleanup,
+                               baltic_taxa = frontpage_baltic_taxa,
+                               westcoast_taxa = frontpage_westcoast_taxa,
+                               taxa_lookup = taxa_lookup)
   }
 
-  # Logo header
-  logo_path <- system.file("templates", "ALGAWARE_title.PNG", package = "algaware")
-  if (nzchar(logo_path)) {
-    doc <- officer::body_add_img(doc, logo_path, width = 6, height = 6 * 106 / 859)
+  # Logo header and title (only when there is no front page)
+  if (!has_frontpage) {
+    logo_path <- system.file("templates", "ALGAWARE_title.PNG",
+                             package = "algaware")
+    if (nzchar(logo_path)) {
+      doc <- officer::body_add_fpar(doc, officer::fpar(
+        officer::external_img(logo_path, width = 6, height = 6 * 106 / 859),
+        fp_p = center_pp
+      ))
+      doc <- officer::body_add_par(doc, "")
+    }
+    doc <- officer::body_add_par(doc, "AlgAware Report", style = "heading 1")
+    doc <- officer::body_add_par(doc, cruise_info, style = "Normal")
     doc <- officer::body_add_par(doc, "")
   }
 
-  # Title
-  doc <- officer::body_add_par(doc, "AlgAware Report", style = "heading 1")
-  doc <- officer::body_add_par(doc, cruise_info, style = "Normal")
-  doc <- officer::body_add_par(doc, "")
-
   # Introduction
+  doc <- officer::body_add_par(doc, "Introduction", style = "heading 2")
   intro <- paste0(
     "This report is based on images collected by an Imaging FlowCytobot ",
     "(IFCB) onboard R/V Svea. Samples are collected continuously ",
@@ -213,58 +243,64 @@ generate_report <- function(output_path, station_summary,
     doc <- officer::body_add_par(doc, "")
   }
 
-  # Maps
-  doc <- officer::body_add_par(doc, "Maps", style = "heading 2")
+  # ---- Maps (each on its own page) ----
   fig_num <- 1L
+  maps <- create_biomass_maps(station_summary)
 
-  # Image count map (cruise-wide)
-  if (!is.null(image_counts) && nrow(image_counts) > 0) {
+  # Image count map — skip if already shown on the front page
+  if (!has_frontpage && !is.null(image_counts) && nrow(image_counts) > 0) {
+    doc <- officer::body_add_break(doc)
+    doc <- officer::body_add_par(doc, "Maps", style = "heading 2")
     img_map <- create_image_count_map(image_counts)
-    doc <- add_plot_to_doc(doc, img_map, cleanup,
+    doc <- add_centered_plot(doc, img_map, cleanup,
       width = 7, height = 5, display_width = 6, display_height = 4.3)
     total_images <- format(sum(image_counts$n_images, na.rm = TRUE),
                            big.mark = ",")
-    doc <- officer::body_add_par(
-      doc,
-      paste0("Figure ", fig_num,
-             ". IFCB image counts along the cruise track. ",
-             "Total images collected: ", total_images, "."),
-      style = "Normal"
-    )
-    doc <- officer::body_add_par(doc, "")
+    doc <- officer::body_add_fpar(doc, officer::fpar(
+      officer::ftext(
+        paste0("Figure ", fig_num,
+               ". IFCB image concentration along the cruise track. ",
+               "Total images collected: ", total_images, "."),
+        officer::fp_text(font.size = 10, font.family = "Adobe Garamond Pro")
+      ), fp_p = center_pp
+    ))
     fig_num <- fig_num + 1L
   }
 
-  # Biomass map
-  maps <- create_biomass_maps(station_summary)
+  # Biomass map (own page, with heading if first map)
+  doc <- officer::body_add_break(doc)
+  if (has_frontpage || is.null(image_counts) || nrow(image_counts) == 0) {
+    doc <- officer::body_add_par(doc, "Maps", style = "heading 2")
+  }
 
-  doc <- add_plot_to_doc(doc, maps$biomass_map, cleanup,
+  doc <- add_centered_plot(doc, maps$biomass_map, cleanup,
     width = 7, height = 5, display_width = 6, display_height = 4.3)
-  doc <- officer::body_add_par(
-    doc,
-    paste0("Figure ", fig_num,
-           ". Total carbon biomass at AlgAware stations."),
-    style = "Normal"
-  )
-  doc <- officer::body_add_par(doc, "")
+  doc <- officer::body_add_fpar(doc, officer::fpar(
+    officer::ftext(
+      paste0("Figure ", fig_num,
+             ". Total carbon biomass at AlgAware stations."),
+      officer::fp_text(font.size = 10, font.family = "Adobe Garamond Pro")
+    ), fp_p = center_pp
+  ))
   fig_num <- fig_num + 1L
 
-  # Chlorophyll map
-  doc <- add_plot_to_doc(doc, maps$chl_map, cleanup,
+  # Chlorophyll map (own page)
+  doc <- officer::body_add_break(doc)
+  doc <- add_centered_plot(doc, maps$chl_map, cleanup,
     width = 7, height = 5, display_width = 6, display_height = 4.3)
-  doc <- officer::body_add_par(
-    doc,
-    paste0("Figure ", fig_num,
-           ". Chlorophyll fluorescence at AlgAware stations."),
-    style = "Normal"
-  )
-  doc <- officer::body_add_par(doc, "")
+  doc <- officer::body_add_fpar(doc, officer::fpar(
+    officer::ftext(
+      paste0("Figure ", fig_num,
+             ". Chlorophyll fluorescence at AlgAware stations."),
+      officer::fp_text(font.size = 10, font.family = "Adobe Garamond Pro")
+    ), fp_p = center_pp
+  ))
   fig_num <- fig_num + 1L
 
   # Build sample counts per station_date for heatmap labels
   sample_counts <- build_sample_counts(station_summary)
 
-  # Heatmaps and stacked bars
+  # ---- Heatmaps (each on its own page) ----
   result <- add_heatmap_section(doc, baltic_wide, taxa_lookup, "Baltic Sea",
                                 fig_num, cleanup, sample_counts)
   doc <- result$doc
@@ -275,15 +311,27 @@ generate_report <- function(output_path, station_summary,
   doc <- result$doc
   fig_num <- result$fig_num
 
-  result <- add_stacked_bar_section(doc, baltic_wide, taxa_lookup, "Baltic Sea",
-                                    fig_num, cleanup)
-  doc <- result$doc
-  fig_num <- result$fig_num
+  # ---- Stacked bar charts (both on one page) ----
+  has_baltic_bar <- nrow(baltic_wide) > 0 && ncol(baltic_wide) > 1
+  has_westcoast_bar <- nrow(westcoast_wide) > 0 && ncol(westcoast_wide) > 1
 
-  result <- add_stacked_bar_section(doc, westcoast_wide, taxa_lookup,
-                                    "West Coast", fig_num, cleanup)
-  doc <- result$doc
-  fig_num <- result$fig_num
+  if (has_baltic_bar || has_westcoast_bar) {
+    doc <- officer::body_add_break(doc)
+    doc <- officer::body_add_par(doc, "Relative Biovolume", style = "heading 2")
+
+    if (has_baltic_bar) {
+      result <- add_stacked_bar_section(doc, baltic_wide, taxa_lookup,
+                                        "Baltic Sea", fig_num, cleanup)
+      doc <- result$doc
+      fig_num <- result$fig_num
+    }
+    if (has_westcoast_bar) {
+      result <- add_stacked_bar_section(doc, westcoast_wide, taxa_lookup,
+                                        "West Coast", fig_num, cleanup)
+      doc <- result$doc
+      fig_num <- result$fig_num
+    }
+  }
 
   # Station sections
   doc <- add_station_sections(doc, station_summary, taxa_lookup, use_llm,
@@ -291,16 +339,58 @@ generate_report <- function(output_path, station_summary,
                                on_llm_progress = report_progress,
                                unclassified_fractions = unclassified_fractions)
 
-  # Image mosaics
+  # Image mosaics (optional per-class mosaics)
   hab_species <- get_hab_species(taxa_lookup)
   doc <- add_mosaic_section(doc, baltic_mosaics, hab_species, "Baltic Sea",
                             cleanup)
-
   doc <- add_mosaic_section(doc, westcoast_mosaics, hab_species,
                             "West Coast", cleanup)
 
+  # ---- End content section with page number footer ----
+  page_footer <- officer::block_list(
+    officer::fpar(
+      officer::run_word_field("PAGE"),
+      fp_p = officer::fp_par(text.align = "center")
+    )
+  )
+  doc <- officer::body_end_block_section(doc, officer::block_section(
+    officer::prop_section(
+      type = "nextPage",
+      footer_default = page_footer
+    )
+  ))
+
+  # ---- Back page with institutional logos ----
+  doc <- add_back_page(doc, cleanup)
+
   print(doc, target = output_path)
+
+  # Post-process: set page numbering to start at 1 for the content section
+  if (has_frontpage) {
+    fix_page_numbering(output_path)
+  }
+
   invisible(output_path)
+}
+
+#' Save a ggplot to a temp file and add centered to document
+#'
+#' @param doc An rdocx object.
+#' @param plot A ggplot object.
+#' @param cleanup Environment with a \code{files} character vector.
+#' @param width,height Plot dimensions in inches for ggsave.
+#' @param display_width,display_height Display dimensions in the document.
+#' @return The modified rdocx object.
+#' @keywords internal
+add_centered_plot <- function(doc, plot, cleanup,
+                              width, height, display_width, display_height) {
+  f <- tempfile(fileext = ".png")
+  ggplot2::ggsave(f, plot, width = width, height = height, dpi = 300)
+  cleanup$files <- c(cleanup$files, f)
+  officer::body_add_fpar(doc, officer::fpar(
+    officer::external_img(f, width = display_width, height = display_height),
+    fp_p = officer::fp_par(text.align = "center")
+  ))
 }
 
 #' Save a ggplot to a temp file and add to document
@@ -337,11 +427,12 @@ build_sample_counts <- function(station_summary) {
   stats::setNames(counts, keys)
 }
 
-#' Add a heatmap section to the report
+#' Add a heatmap section to the report (own page)
 #' @keywords internal
 add_heatmap_section <- function(doc, wide_data, taxa_lookup, title,
                                 fig_num, cleanup, sample_counts = NULL) {
   if (nrow(wide_data) > 0 && ncol(wide_data) > 1) {
+    doc <- officer::body_add_break(doc)
     doc <- officer::body_add_par(doc, paste(title, "- Biovolume Heatmap"),
                                  style = "heading 2")
     hm <- create_heatmap(wide_data, taxa_lookup = taxa_lookup,
@@ -350,38 +441,44 @@ add_heatmap_section <- function(doc, wide_data, taxa_lookup, title,
     hm_height <- max(4, min(12, nrow(wide_data) * 0.25 + 2))
     ggplot2::ggsave(hm_file, hm, width = 8, height = hm_height, dpi = 300)
     cleanup$files <- c(cleanup$files, hm_file)
-    doc <- officer::body_add_img(doc, hm_file, width = 6,
-                                 height = hm_height * 6 / 8)
-    doc <- officer::body_add_par(
-      doc,
-      paste0("Figure ", fig_num,
-             ". Biovolume heatmap for ", title, " stations."),
-      style = "Normal"
-    )
+    display_h <- hm_height * 6 / 8
+    doc <- officer::body_add_fpar(doc, officer::fpar(
+      officer::external_img(hm_file, width = 6, height = display_h),
+      fp_p = officer::fp_par(text.align = "center")
+    ))
+    doc <- officer::body_add_fpar(doc, officer::fpar(
+      officer::ftext(
+        paste0("Figure ", fig_num,
+               ". Biovolume heatmap for ", title, " stations."),
+        officer::fp_text(font.size = 10, font.family = "Adobe Garamond Pro")
+      ), fp_p = officer::fp_par(text.align = "center")
+    ))
     doc <- officer::body_add_par(doc, "")
     fig_num <- fig_num + 1L
   }
   list(doc = doc, fig_num = fig_num)
 }
 
-#' Add a stacked bar section to the report
+#' Add a stacked bar chart to the report (no page break, added by caller)
 #' @keywords internal
 add_stacked_bar_section <- function(doc, wide_data, taxa_lookup, title,
                                     fig_num, cleanup) {
   if (nrow(wide_data) > 0 && ncol(wide_data) > 1) {
-    doc <- officer::body_add_par(doc, paste(title, "- Relative Biovolume"),
-                                 style = "heading 2")
     sb <- create_stacked_bar(wide_data, taxa_lookup = taxa_lookup)
     sb_file <- tempfile(fileext = ".png")
     ggplot2::ggsave(sb_file, sb, width = 8, height = 5, dpi = 300)
     cleanup$files <- c(cleanup$files, sb_file)
-    doc <- officer::body_add_img(doc, sb_file, width = 6, height = 3.75)
-    doc <- officer::body_add_par(
-      doc,
-      paste0("Figure ", fig_num,
-             ". Relative biovolume of top 10 taxa at ", title, " stations."),
-      style = "Normal"
-    )
+    doc <- officer::body_add_fpar(doc, officer::fpar(
+      officer::external_img(sb_file, width = 6, height = 3.75),
+      fp_p = officer::fp_par(text.align = "center")
+    ))
+    doc <- officer::body_add_fpar(doc, officer::fpar(
+      officer::ftext(
+        paste0("Figure ", fig_num,
+               ". Relative biovolume of top 10 taxa at ", title, " stations."),
+        officer::fp_text(font.size = 10, font.family = "Adobe Garamond Pro")
+      ), fp_p = officer::fp_par(text.align = "center")
+    ))
     doc <- officer::body_add_par(doc, "")
     fig_num <- fig_num + 1L
   }
@@ -395,6 +492,7 @@ add_station_sections <- function(doc, station_summary,
                                  llm_provider = NULL,
                                  on_llm_progress = NULL,
                                  unclassified_fractions = NULL) {
+  doc <- officer::body_add_break(doc)
   doc <- officer::body_add_par(doc, "Station Reports", style = "heading 2")
 
   visits <- unique(station_summary[, c("STATION_NAME", "STATION_NAME_SHORT",
@@ -448,6 +546,7 @@ add_mosaic_section <- function(doc, mosaics, hab_species, region_label,
                                cleanup) {
   if (length(mosaics) == 0) return(doc)
 
+  doc <- officer::body_add_break(doc)
   doc <- officer::body_add_par(doc, "Image Mosaics", style = "heading 2")
   doc <- officer::body_add_par(doc, region_label, style = "heading 3")
   mosaic_num <- 1L
@@ -459,7 +558,6 @@ add_mosaic_section <- function(doc, mosaics, hab_species, region_label,
     info <- magick::image_info(mosaics[[taxon]])
     display_width <- min(6, info$width / 300)
     display_height <- display_width * info$height / info$width
-    # Cap at half page height (~5 inches on A4)
     if (display_height > 5) {
       display_height <- 5
       display_width <- display_height * info$width / info$height
@@ -467,15 +565,21 @@ add_mosaic_section <- function(doc, mosaics, hab_species, region_label,
     hab_note <- if (taxon %in% hab_species) " *" else ""
     doc <- officer::body_add_par(doc, paste0(taxon, hab_note),
                                  style = "heading 3")
-    doc <- officer::body_add_img(doc, mosaic_file,
-                                 width = display_width,
-                                 height = display_height)
+    doc <- officer::body_add_fpar(doc, officer::fpar(
+      officer::external_img(mosaic_file, width = display_width,
+                            height = display_height),
+      fp_p = officer::fp_par(text.align = "center")
+    ))
     caption <- paste0("Mosaic ", mosaic_num, ". Example images of ", taxon,
                       " from ", region_label, " stations.")
     if (taxon %in% hab_species) {
       caption <- paste0(caption, " * Potentially harmful taxon.")
     }
-    doc <- officer::body_add_par(doc, caption, style = "Normal")
+    doc <- officer::body_add_fpar(doc, officer::fpar(
+      officer::ftext(caption,
+        officer::fp_text(font.size = 10, font.family = "Adobe Garamond Pro")),
+      fp_p = officer::fp_par(text.align = "center")
+    ))
     doc <- officer::body_add_par(doc, "")
     mosaic_num <- mosaic_num + 1L
   }
@@ -485,58 +589,308 @@ add_mosaic_section <- function(doc, mosaics, hab_species, region_label,
 
 #' Add front page to the report
 #'
-#' Inserts the report front page with logo, diary number placeholder, and
-#' two summary mosaics (Baltic Sea and West Coast).
+#' Inserts a professional cover page with the AlgAware logo, report title,
+#' issue number, diary number placeholder, cruise information, and cruise
+#' track map. Mosaics are placed on the following page via
+#' \code{add_mosaic_overview()}.
+#'
+#' @param doc An rdocx object.
+#' @param cleanup Environment with a \code{files} character vector.
+#' @param taxa_lookup Optional taxa lookup table with \code{italic} column.
+#' @param cruise_info Cruise information string (e.g. "RV Svea March cruise,
+#'   2026-03-15 to 2026-03-22").
+#' @param report_number Optional report issue number (e.g. "1").
+#' @param image_counts Optional image counts data for the cruise track map.
+#' @return The modified rdocx object.
+#' @keywords internal
+add_front_page <- function(doc, cleanup,
+                           taxa_lookup = NULL, cruise_info = "",
+                           report_number = NULL, image_counts = NULL) {
+  font <- "Adobe Garamond Pro"
+  center_pp <- officer::fp_par(text.align = "center")
+
+  title_prop <- officer::fp_text(font.size = 18, bold = TRUE, color = "#1b3a4b",
+                                  font.family = font)
+  subtitle_prop <- officer::fp_text(font.size = 14, color = "#1b3a4b",
+                                     font.family = font)
+  info_prop <- officer::fp_text(font.size = 11, color = "#555555",
+                                 font.family = font)
+  dnr_prop <- officer::fp_text(font.size = 10, color = "#888888",
+                                font.family = font)
+
+  # -- Logo (full width, centered) --
+  logo_path <- system.file("templates", "ALGAWARE_title.PNG",
+                           package = "algaware")
+  if (nzchar(logo_path)) {
+    doc <- officer::body_add_fpar(doc, officer::fpar(
+      officer::external_img(logo_path, width = 6, height = 6 * 106 / 859),
+      fp_p = center_pp
+    ))
+  }
+
+  doc <- officer::body_add_par(doc, "")
+
+  # -- Title (centered) --
+  doc <- officer::body_add_fpar(doc, officer::fpar(
+    officer::ftext("ALGAL SITUATION IN MARINE WATERS SURROUNDING SWEDEN",
+                   title_prop),
+    fp_p = center_pp
+  ))
+
+  # -- Issue line: "No X, Month Year" (centered) --
+  month_year <- extract_month_year(cruise_info)
+  issue_text <- ""
+  if (!is.null(report_number) && nzchar(trimws(report_number))) {
+    issue_text <- paste0("No ", trimws(report_number))
+    if (nzchar(month_year)) issue_text <- paste0(issue_text, ", ", month_year)
+  } else if (nzchar(month_year)) {
+    issue_text <- month_year
+  }
+  if (nzchar(issue_text)) {
+    doc <- officer::body_add_fpar(doc, officer::fpar(
+      officer::ftext(issue_text, subtitle_prop),
+      fp_p = center_pp
+    ))
+  }
+
+  # -- Cruise info (centered) --
+  if (nzchar(cruise_info)) {
+    doc <- officer::body_add_fpar(doc, officer::fpar(
+      officer::ftext(cruise_info, info_prop),
+      fp_p = center_pp
+    ))
+  }
+
+  # -- Dnr placeholder (centered, lighter) --
+  doc <- officer::body_add_fpar(doc, officer::fpar(
+    officer::ftext("Dnr: ____/____/____", dnr_prop),
+    fp_p = center_pp
+  ))
+
+  doc <- officer::body_add_par(doc, "")
+
+  # -- Cruise track map (centered) --
+  if (!is.null(image_counts) && nrow(image_counts) > 0) {
+    track_map <- create_image_count_map(image_counts)
+    doc <- add_centered_plot(doc, track_map, cleanup,
+      width = 7, height = 5, display_width = 6, display_height = 4.3)
+  }
+
+  doc
+}
+
+#' Add mosaic overview page to the report
+#'
+#' Inserts Baltic Sea and West Coast summary mosaics with numbered taxa
+#' captions. Called after the front page section break.
 #'
 #' @param doc An rdocx object.
 #' @param baltic_mosaic Optional magick image for Baltic Sea.
 #' @param westcoast_mosaic Optional magick image for West Coast.
 #' @param cleanup Environment with a \code{files} character vector.
+#' @param baltic_taxa Optional character vector of taxa names for Baltic caption.
+#' @param westcoast_taxa Optional character vector of taxa names for West Coast.
+#' @param taxa_lookup Optional taxa lookup table with \code{italic} column.
 #' @return The modified rdocx object.
 #' @keywords internal
-add_front_page <- function(doc, baltic_mosaic, westcoast_mosaic, cleanup) {
-  # Logo
+add_mosaic_overview <- function(doc, baltic_mosaic, westcoast_mosaic, cleanup,
+                                baltic_taxa = NULL, westcoast_taxa = NULL,
+                                taxa_lookup = NULL) {
+  font <- "Adobe Garamond Pro"
+  center_pp <- officer::fp_par(text.align = "center")
 
-  logo_path <- system.file("templates", "ALGAWARE_title.PNG",
-                           package = "algaware")
-  if (nzchar(logo_path)) {
-    doc <- officer::body_add_img(doc, logo_path, width = 6,
-                                 height = 6 * 106 / 859)
+  mosaic_heading_prop <- officer::fp_text(font.size = 12, bold = TRUE,
+                                           color = "#1b3a4b",
+                                           font.family = font)
+  mosaic_heading_note <- officer::fp_text(font.size = 10, color = "#666666",
+                                           font.family = font)
+  caption_prop <- officer::fp_text(font.size = 9, font.family = font)
+  caption_italic <- officer::fp_text(font.size = 9, italic = TRUE,
+                                      font.family = font)
+
+  italic_names <- if (!is.null(taxa_lookup) &&
+                      "italic" %in% names(taxa_lookup)) {
+    is_italic <- taxa_lookup$italic == TRUE & !is.na(taxa_lookup$italic)
+    unique(taxa_lookup$name[is_italic & nzchar(taxa_lookup$name)])
+  } else {
+    character(0)
   }
 
-  # Diary number placeholder
-  doc <- officer::body_add_par(doc, "")
-  doc <- officer::body_add_par(doc, "Dnr: XXXX-XXXX", style = "Normal")
-  doc <- officer::body_add_par(doc, "")
-
-  # Helper to add a frontpage mosaic with region label
-  add_fp_mosaic <- function(doc, mosaic, label) {
+  add_one_mosaic <- function(doc, mosaic, label, taxa = NULL,
+                             add_spacing = FALSE) {
     if (is.null(mosaic)) return(doc)
+    if (add_spacing) doc <- officer::body_add_par(doc, "")
 
-    doc <- officer::body_add_par(doc, label, style = "heading 3")
+    doc <- officer::body_add_fpar(doc, officer::fpar(
+      officer::ftext(paste0(label, " "), mosaic_heading_prop),
+      officer::ftext("\u2014 most common taxa by image count",
+                     mosaic_heading_note)
+    ), style = "Normal")
 
     mosaic_file <- tempfile(fileext = ".png")
     magick::image_write(mosaic, mosaic_file)
     cleanup$files <- c(cleanup$files, mosaic_file)
 
     info <- magick::image_info(mosaic)
-    # Scale to fit page width (max 6 inches), preserving aspect ratio
     display_width <- min(6, info$width / 300)
     display_height <- display_width * info$height / info$width
-    # Cap height to leave room for both mosaics on the page
     if (display_height > 3.5) {
       display_height <- 3.5
       display_width <- display_height * info$width / info$height
     }
 
-    doc <- officer::body_add_img(doc, mosaic_file,
-                                 width = display_width,
-                                 height = display_height)
+    doc <- officer::body_add_fpar(doc, officer::fpar(
+      officer::external_img(mosaic_file, width = display_width,
+                            height = display_height),
+      fp_p = center_pp
+    ))
+
+    if (!is.null(taxa) && length(taxa) > 0) {
+      parts <- lapply(seq_along(taxa), function(i) {
+        sep <- if (i < length(taxa)) ", " else ""
+        prop <- if (taxa[i] %in% italic_names) caption_italic else caption_prop
+        list(
+          officer::ftext(paste0(i, ". "), caption_prop),
+          officer::ftext(paste0(taxa[i], sep), prop)
+        )
+      })
+      fp <- do.call(officer::fpar, unlist(parts, recursive = FALSE))
+      doc <- officer::body_add_fpar(doc, fp)
+    }
     doc
   }
 
-  doc <- add_fp_mosaic(doc, baltic_mosaic, "Baltic Sea")
-  doc <- add_fp_mosaic(doc, westcoast_mosaic, "West Coast")
+  doc <- add_one_mosaic(doc, baltic_mosaic, "Baltic Sea", baltic_taxa)
+  doc <- add_one_mosaic(doc, westcoast_mosaic, "West Coast", westcoast_taxa,
+                        add_spacing = TRUE)
+  doc
+}
+
+#' Add back page with institutional logos at the bottom
+#'
+#' Adds a final page with SMHI and HaV logos anchored to the page footer
+#' so they always appear at the bottom regardless of content length.
+#'
+#' @param doc An rdocx object.
+#' @param cleanup Environment with a \code{files} character vector.
+#' @return The modified rdocx object.
+#' @keywords internal
+add_back_page <- function(doc, cleanup) {
+  smhi_logo <- system.file("app", "www", "smhi.png", package = "algaware")
+  hav_logo <- system.file("app", "www", "hav-logo_en_black_1000px.png",
+                          package = "algaware")
+
+  has_smhi <- nzchar(smhi_logo)
+  has_hav <- nzchar(hav_logo)
+  if (!has_smhi && !has_hav) return(doc)
+
+  center_pp <- officer::fp_par(text.align = "center")
+
+  parts <- list()
+  if (has_smhi) {
+    parts <- c(parts, list(
+      officer::external_img(smhi_logo, width = 1.5, height = 1.5 * 152 / 305)
+    ))
+  }
+  if (has_smhi && has_hav) {
+    parts <- c(parts, list(
+      officer::ftext("          ", officer::fp_text(font.size = 11))
+    ))
+  }
+  if (has_hav) {
+    parts <- c(parts, list(
+      officer::external_img(hav_logo, width = 2.5, height = 2.5 * 361 / 1000)
+    ))
+  }
+
+  logo_fpar <- do.call(officer::fpar, c(parts, list(fp_p = center_pp)))
+
+  # Place logos in the footer of the back page section so they sit at the
+  # bottom of the page regardless of body content length.
+  # The document ends after this section, so no extra page is created.
+  logo_footer <- officer::block_list(logo_fpar)
+
+  # One empty paragraph as the back page body
+  doc <- officer::body_add_par(doc, "")
+
+  doc <- officer::body_end_block_section(doc, officer::block_section(
+    officer::prop_section(
+      type = "nextPage",
+      footer_default = logo_footer
+    )
+  ))
 
   doc
+}
+
+#' Fix page numbering to start at 1 after the front page
+#'
+#' Post-processes the .docx file XML to add \code{pgNumType} with
+#' \code{start="1"} to the second section (first content section).
+#'
+#' @param docx_path Path to the .docx file.
+#' @keywords internal
+fix_page_numbering <- function(docx_path) {
+  tryCatch({
+    tmp_dir <- tempfile("docx_fix_")
+    dir.create(tmp_dir)
+    on.exit(unlink(tmp_dir, recursive = TRUE), add = TRUE)
+
+    utils::unzip(docx_path, exdir = tmp_dir)
+
+    doc_xml_path <- file.path(tmp_dir, "word", "document.xml")
+    xml <- readLines(doc_xml_path, warn = FALSE)
+    xml_text <- paste(xml, collapse = "\n")
+
+    # Find the second <w:sectPr (first content section after front page)
+    # and inject pgNumType start="1"
+    sect_positions <- gregexpr("<w:sectPr", xml_text)[[1]]
+    if (length(sect_positions) >= 2) {
+      # Insert pgNumType right after the second <w:sectPr...> opening tag
+      second_pos <- sect_positions[2]
+      # Find the closing > of this tag
+      close_pos <- regexpr(">", substring(xml_text, second_pos))
+      insert_at <- second_pos + close_pos - 1
+      xml_text <- paste0(
+        substring(xml_text, 1, insert_at),
+        '<w:pgNumType w:start="1"/>',
+        substring(xml_text, insert_at + 1)
+      )
+      writeLines(xml_text, doc_xml_path)
+
+      # Re-zip
+      old_wd <- getwd()
+      on.exit(setwd(old_wd), add = TRUE)
+      setwd(tmp_dir)
+      files <- list.files(".", recursive = TRUE, all.files = TRUE)
+      file.remove(docx_path)
+      utils::zip(docx_path, files, flags = "-r9Xq")
+    }
+  }, error = function(e) {
+    warning("Could not fix page numbering: ", e$message, call. = FALSE)
+  })
+}
+
+#' Extract month and year from cruise info string
+#'
+#' Parses a string like "RV Svea March cruise, 2026-03-15 to 2026-03-22"
+#' and returns "March 2026".
+#'
+#' @param cruise_info Cruise information string.
+#' @return Character string with month and year, or empty string.
+#' @keywords internal
+extract_month_year <- function(cruise_info) {
+  if (!nzchar(cruise_info)) return("")
+  months <- c("January", "February", "March", "April", "May", "June",
+              "July", "August", "September", "October", "November", "December")
+  month <- ""
+  for (m in months) {
+    if (grepl(m, cruise_info, fixed = TRUE)) {
+      month <- m
+      break
+    }
+  }
+  year_match <- regmatches(cruise_info, regexpr("\\d{4}", cruise_info))
+  year <- if (length(year_match) > 0) year_match[1] else ""
+  trimws(paste(month, year))
 }

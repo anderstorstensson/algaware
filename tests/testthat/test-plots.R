@@ -144,6 +144,7 @@ test_that("create_image_count_map returns ggplot", {
     latitude = c(55.25, 58.59, 57.0),
     longitude = c(15.98, 18.23, 17.0),
     n_images = c(100, 200, 150),
+    ml_analyzed = c(4.5, 5.0, 4.8),
     stringsAsFactors = FALSE
   )
 

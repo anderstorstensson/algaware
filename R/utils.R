@@ -36,7 +36,8 @@ default_settings <- function() {
     extra_stations = list(),
     pixels_per_micron = 2.77,  # IFCB optical calibration (pixels per micron)
     n_mosaic_taxa = 5L,       # Number of top taxa to show in report mosaics
-    n_mosaic_images = 32L     # Max images per mosaic panel
+    n_mosaic_images = 32L,    # Max images per mosaic panel
+    include_class_mosaics = FALSE  # Include per-class mosaics in report
   )
 }
 
@@ -104,7 +105,7 @@ save_settings <- function(settings) {
 #'
 #' @param class_string Comma-separated class names
 #' @return Character vector of trimmed class names
-#' @keywords internal
+#' @export
 parse_non_bio_classes <- function(class_string) {
   classes <- trimws(unlist(strsplit(class_string, ",")))
   classes[nzchar(classes)]

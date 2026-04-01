@@ -15,4 +15,3 @@ Character vector of trimmed class names
 \description{
 Parse non-biological classes from comma-separated string
 }
-\keyword{internal}

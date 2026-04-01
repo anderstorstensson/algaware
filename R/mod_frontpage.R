@@ -18,7 +18,7 @@ mod_frontpage_ui <- function(id) {
           selected = "EAST"
         ),
         shiny::numericInput(ns("n_images"), "Number of images",
-          value = 10L, min = 1L, max = 20L, step = 1L
+          value = 15L, min = 1L, max = 30L, step = 1L
         ),
         shiny::uiOutput(ns("taxa_selector")),
         shiny::actionButton(ns("generate"), "Generate Mosaic",
@@ -111,7 +111,10 @@ mod_frontpage_server <- function(id, rv, config) {
         choices = all_taxa,
         selected = utils::head(all_taxa, default_n),
         multiple = TRUE,
-        options = list(plugins = list("remove_button"))
+        options = list(
+          plugins = list("remove_button"),
+          dropdownParent = "body"
+        )
       )
     })
 
@@ -243,20 +246,25 @@ mod_frontpage_server <- function(id, rv, config) {
       if (length(images) == 0) return(NULL)
 
       paths <- vapply(images, function(img) img$path, character(1))
-      paths <- paths[file.exists(paths)]
+      exists_mask <- file.exists(paths)
+      paths <- paths[exists_mask]
+      taxa_names <- names(images)[exists_mask]
       if (length(paths) == 0) return(NULL)
 
       mosaic <- tryCatch(
         create_mosaic(paths, n_images = length(paths),
                       max_width_px = 1800L, target_height = 120L,
-                      max_height_px = 1100L),
+                      max_height_px = 1100L, max_cols = Inf,
+                      labels = as.character(seq_along(paths))),
         error = function(e) NULL
       )
 
       if (region == "EAST") {
         rv$frontpage_baltic_mosaic <- mosaic
+        rv$frontpage_baltic_taxa <- taxa_names
       } else {
         rv$frontpage_westcoast_mosaic <- mosaic
+        rv$frontpage_westcoast_taxa <- taxa_names
       }
     }
 
@@ -277,11 +285,7 @@ mod_frontpage_server <- function(id, rv, config) {
       cards <- lapply(taxa_names, function(taxon) {
         img_info <- images[[taxon]]
         # Build a relative URL for the served resource
-        rel_path <- sub(
-          paste0("^", gsub("([\\[\\]{}()+*?^$.|\\\\])", "\\\\\\1", fp_dir), "/?"),
-          "",
-          img_info$path
-        )
+        rel_path <- sub(paste0(fp_dir, "/"), "", img_info$path, fixed = TRUE)
         img_url <- paste0("fp_imgs/", rel_path)
 
         shiny::div(
