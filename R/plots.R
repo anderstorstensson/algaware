@@ -70,7 +70,7 @@ create_biomass_maps <- function(station_summary) {
     ) +
     ggplot2::scale_color_viridis_c(
       option = "mako", direction = -1,
-      name = expression(paste("Biomass (", mu, "g C/L)"))
+      name = expression(paste("Biomass\n(", mu, "g C/L)"))
     ) +
     ggplot2::guides(
       color = ggplot2::guide_colorbar(
@@ -116,9 +116,11 @@ create_chl_map <- function(chl_summary, title = "Chlorophyll") {
       size = 3, min.segment.length = 0, segment.color = "gray50",
       box.padding = 0.5
     ) +
-    ggplot2::scale_color_viridis_c(
-      option = "cividis",
-      name = expression(paste("Chl (", mu, "g/L)"))
+    cmocean::scale_color_cmocean(
+      name = "algae"
+    ) +
+    ggplot2::labs(
+      color = expression(paste("Chl (", mu, "g/L)"))
     ) +
     ggplot2::guides(
       color = ggplot2::guide_colorbar(
@@ -170,10 +172,10 @@ create_image_count_map <- function(image_counts, legend_position = "bottom") {
       all(plot_data$ml_analyzed > 0)) {
     plot_data$images_per_liter <- plot_data$n_images /
       (plot_data$ml_analyzed / 1000)
-    legend_name <- "Images/L"
+    legend_name <- "Abundance\n(counts/L)"
   } else {
     plot_data$images_per_liter <- plot_data$n_images
-    legend_name <- "Image count"
+    legend_name <- "Abundance"
   }
 
   vertical_legend <- identical(legend_position, "right")
