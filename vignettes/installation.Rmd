@@ -35,8 +35,9 @@ then press Enter:
 
 ```{r install}
 install.packages("remotes")
-remotes::install_github("anderstorstensson/shiny-ifcb-algaware",
-                        dependencies = TRUE)
+remotes::install_github("nodc-sweden/ifcb-algaware",
+                        dependencies = TRUE,
+                        ref = remotes::github_release())
 ```
 
 The `dependencies = TRUE` argument ensures all optional packages are installed

@@ -1,9 +1,9 @@
 # AlgAware-IFCB
 
-[![R-CMD-check](https://github.com/anderstorstensson/shiny-ifcb-algaware/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/anderstorstensson/shiny-ifcb-algaware/actions/workflows/R-CMD-check.yaml)
+[![R-CMD-check](https://github.com/nodc-sweden/ifcb-algaware/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/nodc-sweden/ifcb-algaware/actions/workflows/R-CMD-check.yaml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![Lifecycle: experimental](https://img.shields.io/badge/lifecycle-experimental-orange.svg)](https://lifecycle.r-lib.org/articles/stages.html#experimental)
-[![pkgdown](https://img.shields.io/badge/docs-pkgdown-brightgreen.svg)](https://anderstorstensson.github.io/shiny-ifcb-algaware/)
+[![pkgdown](https://img.shields.io/badge/docs-pkgdown-brightgreen.svg)](https://nodc-sweden.github.io/ifcb-algaware/)
 
 An interactive R/Shiny application for processing, validating, and reporting
 phytoplankton data from Imaging FlowCytobot (IFCB) instruments. Developed for
@@ -21,12 +21,13 @@ heatmaps, image mosaics, and CTD fluorescence profiles.
 
 ## Installation
 
-Install from GitHub including all optional dependencies:
+Install the latest release from GitHub including all optional dependencies:
 
 ```r
 # install.packages("remotes")
-remotes::install_github("anderstorstensson/shiny-ifcb-algaware",
-                        dependencies = TRUE)
+remotes::install_github("nodc-sweden/ifcb-algaware",
+                        dependencies = TRUE,
+                        ref = remotes::github_release())
 ```
 
 The `dependencies = TRUE` flag installs both required and suggested packages.

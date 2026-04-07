@@ -1,4 +1,4 @@
-url: https://anderstorstensson.github.io/shiny-ifcb-algaware/
+url: https://nodc-sweden.github.io/ifcb-algaware/
 
 template:
   bootstrap: 5
@@ -52,7 +52,7 @@ navbar:
     github:
       icon: fa-github
       aria-label: GitHub
-      href: https://github.com/anderstorstensson/shiny-ifcb-algaware/
+      href: https://github.com/nodc-sweden/ifcb-algaware/
     articles:
       text: User Guides
       menu:

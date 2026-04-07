@@ -24,13 +24,13 @@ ui <- bslib::page_sidebar(
   title = tags$div(
     style = "display: flex; align-items: center; width: 100%;",
     tags$a(
-      href = "https://anderstorstensson.github.io/shiny-ifcb-algaware/",
+      href = "https://nodc-sweden.github.io/ifcb-algaware/",
       target = "_blank",
       rel = "noopener noreferrer",
       tags$img(src = "logo.png", class = "navbar-logo")
     ),
     tags$a(
-      href = "https://github.com/anderstorstensson/shiny-ifcb-algaware",
+      href = "https://github.com/nodc-sweden/ifcb-algaware",
       target = "_blank",
       rel = "noopener noreferrer",
       class = "navbar-version-link",

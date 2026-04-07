@@ -10,9 +10,9 @@ Description: A Shiny application for processing, validating, and reporting
     classifier predictions, and generates Word reports with biomass plots,
     heatmaps, and image mosaics.
 License: MIT + file LICENSE
-URL: https://anderstorstensson.github.io/shiny-ifcb-algaware/,
-    https://github.com/anderstorstensson/shiny-ifcb-algaware
-BugReports: https://github.com/anderstorstensson/shiny-ifcb-algaware/issues
+URL: https://nodc-sweden.github.io/ifcb-algaware/,
+    https://github.com/nodc-sweden/ifcb-algaware
+BugReports: https://github.com/nodc-sweden/ifcb-algaware/issues
 Depends: R (>= 4.1.0)
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
