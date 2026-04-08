@@ -46,7 +46,7 @@ First release.
 
 ## Maps and plots
 
-- Station maps: image count map, biomass map, and chlorophyll map.
+- Station maps: image count, pie chart, biomass, and chlorophyll maps.
 - Chlorophyll source selector: FerryBox, CTD fluorescence, LIMS bottle
   (0–20 m), or LIMS hose-integrated (0–10 m).
 - Regional heatmaps and stacked bar charts for Baltic Sea and West Coast.
