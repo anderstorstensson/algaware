@@ -98,6 +98,12 @@ minimum, step through each class with the arrow buttons and scan the
 images. If everything looks right, move on. Only act when you see clear
 misclassifications or something unusual.
 
+> **Tip:** Spend a bit more time exploring the unclassified images, as
+> they often reveal gaps in the model. They may include taxa not yet
+> represented, as well as groups that are currently poorly classified.
+> In some cases, you may need to add custom classes for new taxa or
+> provide additional annotations to improve performance.
+
 ### Gallery (main *Validate* tab)
 
 The main panel switches to the **Validate** tab showing the image

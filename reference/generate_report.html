@@ -116,7 +116,8 @@ logo, diary number placeholder, and two summary mosaics.</p>
 <span>  lims_data <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  lims_data_full <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  chl_stats <span class="op">=</span> <span class="cn">NULL</span>,</span>
-<span>  chl_map_source <span class="op">=</span> <span class="st">"ferrybox"</span></span>
+<span>  chl_map_source <span class="op">=</span> <span class="st">"ferrybox"</span>,</span>
+<span>  phyto_groups <span class="op">=</span> <span class="cn">NULL</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -268,6 +269,14 @@ section with regional fluorescence profiles and time series).</p></dd>
 <dd><p>Character; active chlorophyll map source:
 <code>"ferrybox"</code>, <code>"ctd"</code>, <code>"lims"</code> (bottle, 0-20 m), or
 <code>"lims_hose"</code> (hose integrated, 0-10 m).</p></dd>
+
+
+<dt id="arg-phyto-groups">phyto_groups<a class="anchor" aria-label="anchor" href="#arg-phyto-groups"></a></dt>
+<dd><p>Optional data frame with columns <code>name</code>,
+<code>AphiaID</code>, and <code>phyto_group</code> (typically from
+<code><a href="https://sharksmhi.github.io/SHARK4R/reference/assign_phytoplankton_group.html" class="external-link">SHARK4R::assign_phytoplankton_group()</a></code>). Used to render the
+per-station phytoplankton group composition pie map. If <code>NULL</code>,
+the assignments are computed on demand via SHARK4R when available.</p></dd>
 
 </dl></div>
     <div class="section level2">

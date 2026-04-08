@@ -11,7 +11,8 @@ create_fluorescence_profile(
   station_label,
   xlim = NULL,
   date_label = NULL,
-  show_x_axis = TRUE
+  show_x_axis = TRUE,
+  lims_points = NULL
 )
 ```
 
@@ -37,6 +38,12 @@ create_fluorescence_profile(
 - show_x_axis:
 
   Logical; show x-axis tick labels and title on this panel.
+
+- lims_points:
+
+  Optional data frame with columns `DEPH` and `CPHL` for discrete bottle
+  chlorophyll measurements from the current cruise (depth \\\le 50\\ m).
+  Points are overlaid on the profile.
 
 ## Value
 

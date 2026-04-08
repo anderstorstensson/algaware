@@ -37,7 +37,8 @@ generate_report(
   lims_data = NULL,
   lims_data_full = NULL,
   chl_stats = NULL,
-  chl_map_source = "ferrybox"
+  chl_map_source = "ferrybox",
+  phyto_groups = NULL
 )
 ```
 
@@ -187,6 +188,15 @@ generate_report(
 
   Character; active chlorophyll map source: `"ferrybox"`, `"ctd"`,
   `"lims"` (bottle, 0-20 m), or `"lims_hose"` (hose integrated, 0-10 m).
+
+- phyto_groups:
+
+  Optional data frame with columns `name`, `AphiaID`, and `phyto_group`
+  (typically from
+  [`SHARK4R::assign_phytoplankton_group()`](https://sharksmhi.github.io/SHARK4R/reference/assign_phytoplankton_group.html)).
+  Used to render the per-station phytoplankton group composition pie
+  map. If `NULL`, the assignments are computed on demand via SHARK4R
+  when available.
 
 ## Value
 

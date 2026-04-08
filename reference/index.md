@@ -84,6 +84,10 @@ Parse CTD profiles and LIMS chlorophyll data for the chlorophyll map
 
 Create plots and maps
 
+- [`create_pie_map()`](https://nodc-sweden.github.io/ifcb-algaware/reference/create_pie_map.md)
+  : Pie chart map with displacement and leader lines
+- [`create_group_map()`](https://nodc-sweden.github.io/ifcb-algaware/reference/create_group_map.md)
+  : Create a phytoplankton group composition map
 - [`create_biomass_maps()`](https://nodc-sweden.github.io/ifcb-algaware/reference/create_biomass_maps.md)
   : Create biomass and chlorophyll maps
 - [`create_chl_map()`](https://nodc-sweden.github.io/ifcb-algaware/reference/create_chl_map.md)
