@@ -16,7 +16,7 @@ call_gemini(
 
 \item{user_prompt}{User prompt string.}
 
-\item{model}{Gemini model name (default: "gemini-2.5-flash").}
+\item{model}{Gemini model name (default: "gemini-2.5-flash-lite").}
 
 \item{temperature}{Sampling temperature (default: 0.3).}
 }

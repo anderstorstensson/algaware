@@ -139,7 +139,7 @@ If both keys are set, OpenAI is used by default. Override the model by adding:
 
 ```
 OPENAI_MODEL=gpt-4.1
-GEMINI_MODEL=gemini-2.5-flash
+GEMINI_MODEL=gemini-2.5-flash-lite
 ```
 
 > **Security:** Never share your `.Renviron` file or paste your API key into

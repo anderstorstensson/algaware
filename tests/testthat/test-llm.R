@@ -508,7 +508,7 @@ test_that("llm_providers returns all available providers", {
 test_that("llm_model_name returns correct default per provider", {
   withr::with_envvar(c(OPENAI_MODEL = "", GEMINI_MODEL = ""), {
     expect_equal(llm_model_name("openai"), "gpt-5.1")
-    expect_equal(llm_model_name("gemini"), "gemini-2.5-flash")
+    expect_equal(llm_model_name("gemini"), "gemini-2.5-flash-lite")
   })
 })
 

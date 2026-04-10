@@ -263,7 +263,7 @@ llm_provider <- function() {
 #' @return Character string with the model name.
 #' @export
 llm_model_name <- function(provider = llm_provider()) {
-  defaults <- c(openai = "gpt-5.1", gemini = "gemini-2.5-flash")
+  defaults <- c(openai = "gpt-5.1", gemini = "gemini-2.5-flash-lite")
   env_vars <- c(openai = "OPENAI_MODEL", gemini = "GEMINI_MODEL")
 
   if (!provider %in% names(defaults)) return("none")
@@ -289,7 +289,7 @@ load_writing_guide <- function() {
 #'
 #' Standardises the group column name from either \code{phyto_group} or
 #' \code{phyto_group.plankton_group} into \code{detailed_group} and
-#' \code{text_group} (identical \u2014 all groups from the YAML config are
+#' \code{text_group} (identical; all groups from the YAML config are
 #' preserved in both columns).
 #'
 #' @param phyto_groups Data frame with columns \code{name}, \code{AphiaID},
@@ -827,7 +827,7 @@ call_openai <- function(system_prompt, user_prompt,
 #'
 #' @param system_prompt System prompt string.
 #' @param user_prompt User prompt string.
-#' @param model Gemini model name (default: "gemini-2.5-flash").
+#' @param model Gemini model name (default: "gemini-2.5-flash-lite").
 #' @param temperature Sampling temperature (default: 0.3).
 #' @return Character string with the generated text.
 #' @keywords internal

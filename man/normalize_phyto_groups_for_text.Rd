@@ -17,7 +17,7 @@ Data frame with columns \code{name}, \code{AphiaID},
 \description{
 Standardises the group column name from either \code{phyto_group} or
 \code{phyto_group.plankton_group} into \code{detailed_group} and
-\code{text_group} (identical — all groups from the YAML config are
+\code{text_group} (identical; all groups from the YAML config are
 preserved in both columns).
 }
 \keyword{internal}
