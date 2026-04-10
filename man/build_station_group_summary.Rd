@@ -4,7 +4,7 @@
 \alias{build_station_group_summary}
 \title{Build a station-level group summary block for LLM prompts}
 \usage{
-build_station_group_summary(station_data, group_col, heading)
+build_station_group_summary(station_data, group_col, heading, n_top = NULL)
 }
 \arguments{
 \item{station_data}{Station summary rows for one visit, including

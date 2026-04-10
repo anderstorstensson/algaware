@@ -4,13 +4,15 @@
 \alias{create_image_count_map}
 \title{Create an image concentration map from cruise metadata}
 \usage{
-create_image_count_map(image_counts, legend_position = "bottom")
+create_image_count_map(image_counts, legend_position = "right", title = NULL)
 }
 \arguments{
 \item{image_counts}{Data frame from \code{fetch_image_counts()} with
 columns: latitude, longitude, n_images, ml_analyzed.}
 
-\item{legend_position}{Legend position. Default \code{"bottom"}.}
+\item{legend_position}{Legend position. Default \code{"right"}.}
+
+\item{title}{Optional plot title string.}
 }
 \value{
 A ggplot object.

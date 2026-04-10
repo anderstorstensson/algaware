@@ -13,6 +13,7 @@ base_sweden_map <- function() {
       axis.title = ggplot2::element_blank(),
       legend.position = "right",
       legend.direction = "vertical",
+      legend.key.width  = ggplot2::unit(0.6, "cm"),
       legend.key.height = ggplot2::unit(1.8, "cm"),
       legend.title.position = "top",
       legend.title = ggplot2::element_text(hjust = 0.5)
@@ -139,10 +140,12 @@ create_chl_map <- function(chl_summary, title = "Chlorophyll") {
 #'
 #' @param image_counts Data frame from \code{fetch_image_counts()} with
 #'   columns: latitude, longitude, n_images, ml_analyzed.
-#' @param legend_position Legend position. Default \code{"bottom"}.
+#' @param legend_position Legend position. Default \code{"right"}.
+#' @param title Optional plot title string.
 #' @return A ggplot object.
 #' @export
-create_image_count_map <- function(image_counts, legend_position = "bottom") {
+create_image_count_map <- function(image_counts, legend_position = "right",
+                                   title = NULL) {
   scientific_math_labels <- function(x) {
     labs <- lapply(x, function(val) {
       if (is.na(val)) return(quote(NA))
@@ -164,25 +167,24 @@ create_image_count_map <- function(image_counts, legend_position = "bottom") {
     as.expression(labs)
   }
 
-  world <- rnaturalearth::ne_countries(scale = "medium", returnclass = "sf")
-
   plot_data <- image_counts
   if ("ml_analyzed" %in% names(plot_data) &&
       all(!is.na(plot_data$ml_analyzed)) &&
       all(plot_data$ml_analyzed > 0)) {
     plot_data$images_per_liter <- plot_data$n_images /
       (plot_data$ml_analyzed / 1000)
-    legend_name <- "Abundance\n(counts/L)"
+    # Two-line label keeps the colorbar title within the legend column width
+    legend_name <- "Images\n(counts/L)"
   } else {
     plot_data$images_per_liter <- plot_data$n_images
-    legend_name <- "Abundance"
+    legend_name <- "Images"
   }
 
   vertical_legend <- identical(legend_position, "right")
 
-  ggplot2::ggplot() +
-    ggplot2::geom_sf(data = world, fill = "gray95", color = "gray70") +
-    ggplot2::coord_sf(xlim = c(10, 22), ylim = c(54, 60), expand = FALSE) +
+  base_map <- base_sweden_map()
+
+  base_map +
     ggplot2::geom_point(
       data = plot_data,
       ggplot2::aes(x = .data$longitude, y = .data$latitude,
@@ -198,17 +200,13 @@ create_image_count_map <- function(image_counts, legend_position = "bottom") {
       direction = if (vertical_legend) "vertical" else "horizontal",
       title.position = "top"
     )) +
-    ggplot2::theme_minimal(base_size = 12) +
     ggplot2::theme(
-      panel.background = ggplot2::element_rect(fill = "aliceblue"),
-      axis.title = ggplot2::element_blank(),
-      legend.position = legend_position,
+      legend.position  = legend_position,
       legend.direction = if (vertical_legend) "vertical" else "horizontal",
-      legend.key.width = ggplot2::unit(if (vertical_legend) 0.6 else 1.5, "cm"),
-      legend.key.height = ggplot2::unit(if (vertical_legend) 1.8 else 0.4, "cm"),
-      legend.title.position = "top",
-      legend.title = ggplot2::element_text(hjust = 0.5)
-    )
+      legend.key.width  = ggplot2::unit(if (vertical_legend) 0.6 else 1.5, "cm"),
+      legend.key.height = ggplot2::unit(if (vertical_legend) 1.8 else 0.4, "cm")
+    ) +
+    if (!is.null(title)) ggplot2::ggtitle(title) else NULL
 }
 
 #' Create a heatmap of biovolume by species and station
@@ -525,7 +523,19 @@ repel_pie_centers <- function(wide,
       as.integer(d < pair_min_d(i, j))
     }, integer(1L)))
   }
-  order_idx <- order(neighbours, decreasing = TRUE)
+  # Boundary proximity in pie-radius units.  Stations close to the map edge
+  # have nowhere to go, so they get a priority boost that makes interior
+  # stations yield to them instead of the reverse.
+  boundary_margin <- vapply(seq_len(n), function(i) {
+    min(
+      (ax[i] - x_lo)        / r_pie[i],
+      (x_hi  - ax[i])       / r_pie[i],
+      (ay[i] - map_ylim[1]) / r_pie[i],
+      (map_ylim[2] - ay[i]) / r_pie[i]
+    )
+  }, numeric(1L))
+  priority  <- neighbours + 1 / pmax(boundary_margin, 0.5)
+  order_idx <- order(priority, decreasing = TRUE)
 
   x <- rep(NA_real_, n)
   y <- rep(NA_real_, n)
@@ -602,6 +612,9 @@ repel_pie_centers <- function(wide,
     # placed pie, resolve the conflict by pushing away from the offender
     # while holding the minimum-displacement constraint.
     xy <- enforce_min_disp(xi, yi, ax[i], ay[i], min_disp_d_i)
+    xi <- xy[1L]; yi <- xy[2L]
+    # Clamp immediately so the second resolution loop never starts outside bounds.
+    xy <- clamp_xy(i, xi, yi)
     xi <- xy[1L]; yi <- xy[2L]
 
     for (iter in seq_len(40L)) {
@@ -745,17 +758,28 @@ place_pie_labels <- function(wide,
     i      <- order_idx[rank]
     hw_lon <- nchar(labels[i]) * char_w / 2   # half label width (lon degrees)
 
-    best_score <- -Inf
-    best_lx    <- NA_real_
-    best_ly    <- NA_real_
+    best_score    <- -Inf
+    best_lx       <- NA_real_
+    best_ly       <- NA_real_
+    best_center_x <- NA_real_
 
     for (theta in angles) { for (radius_mult in radius_mults) {
       lx <- lons[i] + r_lons[i] * sin(theta) * radius_mult
       ly <- lats[i] + r_lats[i] * cos(theta) * radius_mult
-      left <- lx - hw_lon
-      right <- lx + hw_lon
+
+      # Compute the actual rendered text extent based on the implicit hjust
+      # that will be assigned once the best position is chosen:
+      #   sin(theta) > 0  →  label right of pie  →  hjust = 0 (left-aligned)
+      #   sin(theta) < 0  →  label left of pie   →  hjust = 1 (right-aligned)
+      #   sin(theta) ≈ 0  →  label above/below   →  hjust = 0.5 (centred)
+      s_theta <- sin(theta)
+      left   <- if (s_theta >  1e-6) lx              else
+                if (s_theta < -1e-6) lx - 2 * hw_lon else lx - hw_lon
+      right  <- if (s_theta >  1e-6) lx + 2 * hw_lon else
+                if (s_theta < -1e-6) lx              else lx + hw_lon
+      center_x <- (left + right) / 2
       bottom <- ly - char_h
-      top <- ly + char_h
+      top    <- ly + char_h
 
       if (left < map_xlim[1] || right > map_xlim[2] ||
           bottom < map_ylim[1] || top > map_ylim[2]) next
@@ -767,21 +791,22 @@ place_pie_labels <- function(wide,
       pie_score <- min(vapply(seq_len(n), function(j) {
         r_lon_j <- r_lons[j]
         r_lat_j <- r_lats[j]
-        cx_clamp <- min(max(lons[j], lx - hw_lon), lx + hw_lon)
-        cy_clamp <- min(max(lats[j], ly - char_h), ly + char_h)
+        cx_clamp <- min(max(lons[j], left), right)
+        cy_clamp <- min(max(lats[j], bottom), top)
         dx <- (cx_clamp - lons[j]) / r_lon_j
         dy <- (cy_clamp - lats[j]) / r_lat_j
         sqrt(dx^2 + dy^2) - 1.0
       }, numeric(1L)))
 
-      # Label clearance: penalise overlap with already-placed bboxes
+      # Label clearance: penalise overlap with already-placed bboxes.
+      # Stored bboxes use centre_x so the gap calculation is symmetric.
       label_score <- if (rank <= 1L) Inf else
         min(vapply(seq_len(rank - 1L), function(k) {
           b <- placed[[order_idx[k]]]
           if (is.null(b)) return(Inf)
           # Gap between bounding boxes (negative = overlap)
-          gap_x <- abs(lx - b[1L]) - (hw_lon + b[3L])
-          gap_y <- abs(ly - b[2L]) - (char_h  + b[4L])
+          gap_x <- abs(center_x - b[1L]) - (hw_lon + b[3L])
+          gap_y <- abs(ly       - b[2L]) - (char_h  + b[4L])
           min(gap_x, gap_y)          # negative when boxes overlap
         }, numeric(1L)))
 
@@ -805,7 +830,7 @@ place_pie_labels <- function(wide,
       }
       if (!is_clear) next
       score <- if (is_clear) {
-        side_pref <- abs(sin(theta))
+        side_pref <- abs(s_theta)
         100 - radius_mult * 10 + pmin(pie_score, 3) +
           side_pref * 0.25 - segment_penalty * 1.5
       } else {
@@ -813,16 +838,17 @@ place_pie_labels <- function(wide,
       }
 
       if (score > best_score) {
-        best_score <- score
-        best_lx    <- lx
-        best_ly    <- ly
+        best_score    <- score
+        best_lx       <- lx
+        best_ly       <- ly
+        best_center_x <- center_x
       }
     } }
 
     label_x[i] <- best_lx
     label_y[i] <- best_ly
     if (is.finite(best_lx) && is.finite(best_ly)) {
-      placed[[i]] <- c(best_lx, best_ly, hw_lon, char_h)
+      placed[[i]] <- c(best_center_x, best_ly, hw_lon, char_h)
     }
   }
 
@@ -883,7 +909,8 @@ build_pie_polygons <- function(wide_data, group_cols, n_arc = 80) {
 #'
 #' Thin AlgAware-specific wrapper around \code{\link{create_pie_map}}. Draws
 #' a pie chart at each station showing the relative carbon biomass
-#' contributed by Diatoms, Dinoflagellates, Cyanobacteria, and Other.
+#' contributed by Diatoms, Dinoflagellates, Cyanobacteria, Cryptophytes,
+#' Mesodinium spp., Silicoflagellates, and Other.
 #'
 #' @param station_summary Aggregated station data from
 #'   \code{aggregate_station_data()}, containing columns \code{name},
@@ -897,23 +924,26 @@ build_pie_polygons <- function(wide_data, group_cols, n_arc = 80) {
 #' @return A ggplot object.
 #' @export
 create_group_map <- function(station_summary, phyto_groups, r_lat = 0.28) {
-  group_levels <- c("Diatoms", "Dinoflagellates", "Cyanobacteria", 
-                    "Cryptophytes", "Mesodinium spp.", "Other")
+  group_levels <- c("Diatoms", "Dinoflagellates", "Cyanobacteria",
+                    "Cryptophytes", "Mesodinium spp.", "Silicoflagellates",
+                    "Other")
   group_colors <- c(
-    Diatoms          = "#4A90D9",
-    Dinoflagellates  = "#E74C3C",
-    Cyanobacteria    = "#27AE60",
-    Cryptophytes     = "#9B59B6",
-    `Mesodinium spp.`= "#F1C40F",
-    Other            = "#95A5A6"
+    Diatoms           = "#4A90D9",
+    Dinoflagellates   = "#E74C3C",
+    Cyanobacteria     = "#14B8A6",
+    Cryptophytes      = "#9B59B6",
+    `Mesodinium spp.` = "#F1C40F",
+    Silicoflagellates = "#E67E22",
+    Other             = "#95A5A6"
   )
   group_labels <- c(
-    Diatoms = "Diatoms",
-    Dinoflagellates = "Dinoflagellates",
-    Cyanobacteria = "Cyanobacteria",
-    Cryptophytes = "Cryptophytes",
+    Diatoms           = "Diatoms",
+    Dinoflagellates   = "Dinoflagellates",
+    Cyanobacteria     = "Cyanobacteria",
+    Cryptophytes      = "Cryptophytes",
     `Mesodinium spp.` = "<i>Mesodinium</i> spp.",
-    Other = "Other"
+    Silicoflagellates = "Silicoflagellates",
+    Other             = "Other"
   )
 
   # Merge group assignments; unmatched taxa fall into "Other".
@@ -950,7 +980,8 @@ create_group_map <- function(station_summary, phyto_groups, r_lat = 0.28) {
     size_by      = "total",
     xlim         = c(10, 22),
     ylim         = c(54, 60),
-    title        = "Phytoplankton group composition (carbon biomass)"
+    title        = NULL,
+    legend_title = "Taxon group"
   )
 }
 

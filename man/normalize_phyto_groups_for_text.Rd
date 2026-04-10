@@ -15,7 +15,9 @@ Data frame with columns \code{name}, \code{AphiaID},
 \code{detailed_group}, and \code{text_group}.
 }
 \description{
-Keeps the detailed plotting groups and also derives the collapsed
-four-group view used for the species-by-group prose.
+Standardises the group column name from either \code{phyto_group} or
+\code{phyto_group.plankton_group} into \code{detailed_group} and
+\code{text_group} (identical — all groups from the YAML config are
+preserved in both columns).
 }
 \keyword{internal}

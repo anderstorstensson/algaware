@@ -89,12 +89,11 @@ test_that("format_station_data_for_prompt uses detailed and collapsed group assi
     station_data,
     phyto_groups = phyto_groups
   )
-  expect_true(grepl("Provided dominant-group assignments", result))
-  expect_true(grepl("Provided four-group assignments", result))
+  expect_true(grepl("All phytoplankton groups present", result))
+  expect_true(grepl("Top 3 groups by biovolume", result))
   expect_true(grepl("Diatoms:", result))
   expect_true(grepl("Cryptophytes:", result))
   expect_true(grepl("Mesodinium spp\\.:", result))
-  expect_true(grepl("Other:", result))
   expect_true(grepl("Teleaulax amphioxeia", result))
   expect_true(grepl("Mesodinium rubrum", result))
 })
@@ -122,6 +121,32 @@ test_that("ensure_hab_asterisks does not double-add asterisks", {
   result <- algaware:::ensure_hab_asterisks(text, taxa)
   expect_false(grepl("\\*\\*", result))
   expect_true(grepl("Dinophysis acuminata\\*", result))
+})
+
+test_that("ensure_hab_asterisks fixes double asterisk from LLM (Genus* spp.*)", {
+  taxa <- data.frame(
+    name = c("Pseudochattonella", "Pseudo-nitzschia"),
+    italic = c(TRUE, TRUE),
+    HAB = c(TRUE, TRUE),
+    stringsAsFactors = FALSE
+  )
+  # LLM incorrectly placed * after genus AND after spp.
+  text <- "Pseudochattonella* spp.* was dominant. Pseudo-nitzschia* spp.* was also present."
+  result <- algaware:::ensure_hab_asterisks(text, taxa)
+  expect_true(grepl("Pseudochattonella spp\\.\\*", result))
+  expect_false(grepl("Pseudochattonella\\* spp", result))
+  expect_true(grepl("Pseudo-nitzschia spp\\.\\*", result))
+  expect_false(grepl("Pseudo-nitzschia\\* spp", result))
+})
+
+test_that("ensure_hab_asterisks does not add * to genus when spp.* already correct", {
+  taxa <- data.frame(
+    name = "Pseudochattonella", italic = TRUE, HAB = TRUE,
+    stringsAsFactors = FALSE
+  )
+  text <- "Pseudochattonella spp.* was observed."
+  result <- algaware:::ensure_hab_asterisks(text, taxa)
+  expect_equal(result, "Pseudochattonella spp.* was observed.")
 })
 
 test_that("ensure_hab_asterisks matches abbreviated species names", {
@@ -258,8 +283,7 @@ test_that("format_cruise_summary_for_prompt uses detailed and collapsed group as
   expect_true(grepl("Dominant groups: Dinoflagellates", result) || grepl("Dinoflagellates 0.300", result))
   expect_true(grepl("Cryptophytes 0.100", result))
   expect_true(grepl("Mesodinium spp\\. 0.050", result))
-  expect_true(grepl("Key-species groups: Diatoms", result))
-  expect_true(grepl("Other 0.100", result) || grepl("Other 0.050", result))
+  expect_true(grepl("Cryptophytes 0.100", result) || grepl("Mesodinium spp\\. 0.050", result))
 })
 
 test_that("format_cruise_summary_for_prompt marks HAB species", {
@@ -483,7 +507,7 @@ test_that("llm_providers returns all available providers", {
 
 test_that("llm_model_name returns correct default per provider", {
   withr::with_envvar(c(OPENAI_MODEL = "", GEMINI_MODEL = ""), {
-    expect_equal(llm_model_name("openai"), "gpt-4.1")
+    expect_equal(llm_model_name("openai"), "gpt-5.1")
     expect_equal(llm_model_name("gemini"), "gemini-2.5-flash")
   })
 })
@@ -654,4 +678,165 @@ test_that("format_cruise_summary_for_prompt flags warning exceedances", {
   expect_true(grepl("WARNING EXCEEDED", result))
   expect_true(grepl("IMPORTANT", result))
   expect_true(grepl("1500", result))
+})
+
+# ── bloom_alert_note ────────────────────────────────────────────────────────
+
+# bloom_call() builds a minimal station_summary + matching phyto_groups and
+# calls bloom_alert_note() in one step. The `groups` argument is a named
+# numeric vector of biovolume where names are text_group values recognised by
+# attach_text_groups() (e.g. "Diatoms", "Cyanobacteria", "Other").
+bloom_call <- function(coast, month, groups, chl = NA_real_, lang = "en") {
+  date <- as.Date(sprintf("2024-%02d-15", month))
+  ss <- data.frame(
+    STATION_NAME_SHORT      = "TST",
+    COAST                   = coast,
+    visit_date              = date,
+    visit_id                = "TST_v1",
+    name                    = names(groups),
+    AphiaID                 = seq_along(groups),
+    biovolume_mm3_per_liter = unname(groups),
+    carbon_ug_per_liter     = unname(groups) * 10,
+    counts_per_liter        = unname(groups) * 1000,
+    chl_mean                = chl,
+    stringsAsFactors        = FALSE
+  )
+  # phyto_groups maps each synthetic species name to itself as the group so
+  # that attach_text_groups() assigns the expected text_group label.
+  pg <- data.frame(
+    name                       = names(groups),
+    AphiaID                    = seq_along(groups),
+    phyto_group.plankton_group = names(groups),
+    stringsAsFactors           = FALSE
+  )
+  algaware:::bloom_alert_note(ss, pg, lang = lang)
+}
+
+test_that("bloom_alert_note returns empty string when no conditions met", {
+  expect_equal(bloom_call("EAST", 3L, c(Diatoms = 0.5, Other = 0.5), chl = 1.0), "")
+})
+
+test_that("bloom_alert_note returns empty string for NULL input", {
+  expect_equal(algaware:::bloom_alert_note(NULL), "")
+})
+
+test_that("bloom_alert_note returns empty string when no date column", {
+  ss <- data.frame(COAST = "WEST", biovolume_mm3_per_liter = 1,
+                   stringsAsFactors = FALSE)
+  expect_equal(algaware:::bloom_alert_note(ss), "")
+})
+
+test_that("bloom_alert_note detects spring bloom on West Coast in January", {
+  result <- bloom_call("WEST", 1L, c(Diatoms = 0.8, Other = 0.2), chl = 4.5)
+  expect_true(nzchar(result))
+  expect_true(grepl("SPRING BLOOM", result))
+  expect_false(grepl("CYANOBACTERIAL", result))
+})
+
+test_that("bloom_alert_note detects spring bloom in February", {
+  result <- bloom_call("WEST", 2L, c(Diatoms = 0.7, Other = 0.3), chl = 3.5)
+  expect_true(grepl("SPRING BLOOM", result))
+})
+
+test_that("bloom_alert_note spring bloom: no alert when chl <= 3", {
+  expect_equal(bloom_call("WEST", 1L, c(Diatoms = 0.8, Other = 0.2), chl = 2.9), "")
+})
+
+test_that("bloom_alert_note spring bloom: no alert when diatoms <= 50%", {
+  expect_equal(bloom_call("WEST", 1L, c(Diatoms = 0.5, Other = 0.5), chl = 5.0), "")
+})
+
+test_that("bloom_alert_note spring bloom: no alert outside Jan-Feb", {
+  expect_equal(bloom_call("WEST", 3L, c(Diatoms = 0.9, Other = 0.1), chl = 5.0), "")
+})
+
+test_that("bloom_alert_note spring bloom: no alert for Baltic stations", {
+  expect_equal(bloom_call("EAST", 1L, c(Diatoms = 0.9, Other = 0.1), chl = 5.0), "")
+})
+
+test_that("bloom_alert_note detects cyanobacterial bloom in Baltic in July", {
+  result <- bloom_call("EAST", 7L, c(Cyanobacteria = 0.6, Other = 0.4), chl = 4.0)
+  expect_true(nzchar(result))
+  expect_true(grepl("CYANOBACTERIAL BLOOM", result))
+  expect_false(grepl("SPRING BLOOM", result))
+})
+
+test_that("bloom_alert_note detects cyanobacterial bloom in June and August", {
+  for (m in c(6L, 8L)) {
+    result <- bloom_call("EAST", m, c(Cyanobacteria = 0.6, Other = 0.4), chl = 3.5)
+    expect_true(grepl("CYANOBACTERIAL", result), info = paste("month =", m))
+  }
+})
+
+test_that("bloom_alert_note cyano bloom: no alert when chl <= 3", {
+  expect_equal(bloom_call("EAST", 7L, c(Cyanobacteria = 0.7, Other = 0.3), chl = 2.5), "")
+})
+
+test_that("bloom_alert_note cyano bloom: no alert when cyano <= 50%", {
+  expect_equal(bloom_call("EAST", 7L, c(Cyanobacteria = 0.5, Other = 0.5), chl = 5.0), "")
+})
+
+test_that("bloom_alert_note cyano bloom: no alert outside Jun-Aug", {
+  expect_equal(bloom_call("EAST", 5L, c(Cyanobacteria = 0.8, Other = 0.2), chl = 5.0), "")
+})
+
+test_that("bloom_alert_note cyano bloom: no alert for West Coast stations", {
+  expect_equal(bloom_call("WEST", 7L, c(Cyanobacteria = 0.8, Other = 0.2), chl = 5.0), "")
+})
+
+test_that("bloom_alert_note Swedish spring bloom uses Swedish text", {
+  result <- bloom_call("WEST", 1L, c(Diatoms = 0.8, Other = 0.2), chl = 4.0, lang = "sv")
+  expect_true(grepl("V\u00c5RBLOMNING", result))
+  expect_false(grepl("SPRING BLOOM", result))
+})
+
+test_that("bloom_alert_note Swedish cyano bloom uses Swedish text", {
+  result <- bloom_call("EAST", 7L, c(Cyanobacteria = 0.6, Other = 0.4), chl = 4.0, lang = "sv")
+  expect_true(grepl("CYANOBAKTERIABLOMNING", result))
+  expect_false(grepl("CYANOBACTERIAL BLOOM", result))
+})
+
+test_that("bloom_alert_note chl NA is treated as no high chl", {
+  expect_equal(bloom_call("WEST", 1L, c(Diatoms = 0.8, Other = 0.2), chl = NA_real_), "")
+})
+
+test_that("bloom_alert_note spring bloom fires when any one station exceeds 50%", {
+  # Two West Coast stations: one diatom-dominated (80%), one not (10%)
+  ss <- data.frame(
+    STATION_NAME_SHORT = c("A", "A", "B", "B"),
+    COAST      = "WEST",
+    visit_date = as.Date("2024-01-15"),
+    visit_id   = c("A_v1", "A_v1", "B_v1", "B_v1"),
+    name       = c("Diatoms", "Other", "Diatoms", "Other"),
+    AphiaID    = 1:4,
+    biovolume_mm3_per_liter = c(0.8, 0.2, 0.1, 0.9),
+    carbon_ug_per_liter     = c(8, 2, 1, 9),
+    counts_per_liter        = c(800, 200, 100, 900),
+    chl_mean   = 4.0,
+    stringsAsFactors = FALSE
+  )
+  pg <- data.frame(name = c("Diatoms", "Other"), AphiaID = 1:2,
+                   phyto_group.plankton_group = c("Diatoms", "Other"),
+                   stringsAsFactors = FALSE)
+  result <- algaware:::bloom_alert_note(ss, pg, lang = "en")
+  expect_true(grepl("SPRING BLOOM", result))
+})
+
+test_that("bloom_alert_note uses median_time when visit_date absent", {
+  # Build synthetic data via bloom_call internals but rename the date column
+  date <- as.Date("2024-01-15")
+  ss <- data.frame(
+    STATION_NAME_SHORT = "TST", COAST = "WEST",
+    visit_date = date, visit_id = "TST_v1",
+    name = c("Diatoms", "Other"), AphiaID = 1:2,
+    biovolume_mm3_per_liter = c(0.8, 0.2),
+    carbon_ug_per_liter = c(8, 2), counts_per_liter = c(800, 200),
+    chl_mean = 4.0, stringsAsFactors = FALSE
+  )
+  pg <- data.frame(name = c("Diatoms", "Other"), AphiaID = 1:2,
+                   phyto_group.plankton_group = c("Diatoms", "Other"),
+                   stringsAsFactors = FALSE)
+  names(ss)[names(ss) == "visit_date"] <- "median_time"
+  result <- algaware:::bloom_alert_note(ss, pg, lang = "en")
+  expect_true(grepl("SPRING BLOOM", result))
 })

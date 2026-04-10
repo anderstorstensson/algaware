@@ -86,7 +86,7 @@ The application opens in your default browser.
 
 ### Visualizations
 
-- **Maps**: Phytoplankton group composition pies, image count, and chlorophyll (CTD fluorescence + LIMS bottle) distribution across stations
+- **Maps**: Phytoplankton group composition pies (Diatoms, Dinoflagellates, Cyanobacteria, Cryptophytes, Mesodinium spp., Silicoflagellates, Other), image count, and chlorophyll (CTD fluorescence + LIMS bottle) distribution across stations
 - **Heatmaps**: Biovolume by taxon and station visit
 - **Stacked bar charts**: Relative biovolume composition (top 15 taxa)
 - **Summary table**: Interactive, sortable station-level data
@@ -129,7 +129,7 @@ text (summaries and station descriptions):
 
 | Variable | Provider |
 |----------|----------|
-| `OPENAI_API_KEY` | OpenAI (default: gpt-4.1) |
+| `OPENAI_API_KEY` | OpenAI (default: gpt-5.1) |
 | `GEMINI_API_KEY` | Google Gemini (default: gemini-2.5-flash) |
 
 Override the model with `OPENAI_MODEL` or `GEMINI_MODEL`. When both keys are
@@ -144,6 +144,7 @@ set, OpenAI is used by default.
 | `inst/extdata/station_mapper.txt` | Synonym mapper for raw station names to canonical names |
 | `inst/extdata/annual_1991-2020_statistics_chl20m.txt` | Historical 0–20 m Chl-a monthly statistics (1991–2020) |
 | `inst/extdata/report_writing_guide.md` | LLM system prompt and style guide for report text generation |
+| `inst/config/phyto_groups.yaml` | Phytoplankton group definitions (class/phylum/genus mappings for WoRMS lookup) |
 | `inst/stations/algaware_stations.tsv` | 12 AlgAware monitoring stations (6 Baltic Sea, 6 West Coast) |
 | `inst/templates/report_template.docx` | Word document template for generated reports |
 
@@ -175,6 +176,7 @@ algaware/
 │   └── utils.R                # Settings and utilities
 ├── inst/
 │   ├── app/                   # Shiny app (ui.R, server.R)
+│   ├── config/                # Editable configuration files (phyto_groups.yaml)
 │   ├── extdata/               # Bundled data files
 │   ├── stations/              # Station definitions
 │   └── templates/             # Report template

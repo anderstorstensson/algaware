@@ -313,8 +313,23 @@ test_that("place_pie_labels places labels within map bounds", {
   out <- algaware:::place_pie_labels(wide,
                                      map_xlim = c(10, 22),
                                      map_ylim = c(54, 60))
-  expect_true(all(out$label_x >= 10 & out$label_x <= 22))
-  expect_true(all(out$label_y >= 54 & out$label_y <= 60))
+  char_w <- 0.055
+  char_h <- 0.055
+  for (i in seq_len(nrow(out))) {
+    if (!is.finite(out$label_x[i])) next
+    hw <- nchar(out$label[i]) * char_w / 2
+    lx <- out$label_x[i]
+    text_left  <- if (isTRUE(all.equal(out$hjust[i], 0))) lx
+                  else if (isTRUE(all.equal(out$hjust[i], 1))) lx - 2 * hw
+                  else lx - hw
+    text_right <- if (isTRUE(all.equal(out$hjust[i], 0))) lx + 2 * hw
+                  else if (isTRUE(all.equal(out$hjust[i], 1))) lx
+                  else lx + hw
+    expect_true(text_left  >= 10 - 1e-8, info = paste("label", i, "left edge"))
+    expect_true(text_right <= 22 + 1e-8, info = paste("label", i, "right edge"))
+    expect_true(out$label_y[i] - char_h >= 54 - 1e-8)
+    expect_true(out$label_y[i] + char_h <= 60 + 1e-8)
+  }
 })
 
 test_that("place_pie_labels only returns clear labels", {
@@ -328,18 +343,33 @@ test_that("place_pie_labels only returns clear labels", {
   )
   out <- algaware:::place_pie_labels(
     wide,
-    map_xlim = c(14.2, 15.8),
-    map_ylim = c(56.6, 57.4)
+    map_xlim = c(13.0, 17.5),
+    map_ylim = c(55.5, 58.5)
   )
 
   keep <- which(is.finite(out$label_x) & is.finite(out$label_y))
   expect_gt(length(keep), 0L)
 
+  # Helper: compute actual text bounding box from label_x + hjust.
+  # hjust = 0  → left-aligned  → text runs label_x to label_x + 2*hw
+  # hjust = 1  → right-aligned → text runs label_x - 2*hw to label_x
+  # hjust = 0.5 → centred      → text runs label_x - hw to label_x + hw
+  text_bbox <- function(lx, hw, hjust) {
+    if (isTRUE(all.equal(hjust, 0))) {
+      c(lx, lx + 2 * hw)
+    } else if (isTRUE(all.equal(hjust, 1))) {
+      c(lx - 2 * hw, lx)
+    } else {
+      c(lx - hw, lx + hw)
+    }
+  }
+
   for (i in keep) {
     hw <- nchar(out$label[i]) * 0.055 / 2
     hh <- 0.055
+    bb <- text_bbox(out$label_x[i], hw, out$hjust[i])
     for (j in seq_len(nrow(out))) {
-      cx <- min(max(out$lon[j], out$label_x[i] - hw), out$label_x[i] + hw)
+      cx <- min(max(out$lon[j], bb[1]), bb[2])
       cy <- min(max(out$lat[j], out$label_y[i] - hh), out$label_y[i] + hh)
       dx <- (cx - out$lon[j]) / out$r_lon[j]
       dy <- (cy - out$lat[j]) / out$r_pie[j]
@@ -354,7 +384,11 @@ test_that("place_pie_labels only returns clear labels", {
       j <- pairs[2L, k]
       hw_i <- nchar(out$label[i]) * 0.055 / 2
       hw_j <- nchar(out$label[j]) * 0.055 / 2
-      gap_x <- abs(out$label_x[i] - out$label_x[j]) - (hw_i + hw_j)
+      bb_i <- text_bbox(out$label_x[i], hw_i, out$hjust[i])
+      bb_j <- text_bbox(out$label_x[j], hw_j, out$hjust[j])
+      # Gap between actual rendered extents (negative = overlap)
+      gap_x <- bb_i[1] - bb_j[2]
+      if (bb_j[1] - bb_i[2] > gap_x) gap_x <- bb_j[1] - bb_i[2]
       gap_y <- abs(out$label_y[i] - out$label_y[j]) - (0.055 + 0.055)
       expect_true(gap_x >= 0 || gap_y >= 0)
     }

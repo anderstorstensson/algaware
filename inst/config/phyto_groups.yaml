@@ -1,0 +1,43 @@
+# Phytoplankton group definitions
+#
+# Each top-level key is a group name used in pie charts and LLM prompts.
+# Matching criteria: class, phylum, order, family, genus (lists of strings).
+#
+# The three "core" groups (Diatoms, Dinoflagellates, Cyanobacteria) map to
+# dedicated parameters in SHARK4R::assign_phytoplankton_group(); all others
+# are passed via its custom_groups argument and are evaluated in order, so
+# place more-specific groups (genus-level) before broader ones (class-level).
+
+Diatoms:
+  role: diatoms          # maps to diatom_class parameter
+  class:
+    - Bacillariophyceae
+    - Coscinodiscophyceae
+    - Mediophyceae
+    - Diatomophyceae
+
+Dinoflagellates:
+  role: dinoflagellates  # maps to dinoflagellate_class parameter
+  class:
+    - Dinophyceae
+
+Cyanobacteria:
+  role: cyanobacteria    # maps to cyanobacteria_class / cyanobacteria_phylum
+  class:
+    - Cyanophyceae
+  phylum:
+    - Cyanobacteria
+
+# Custom groups (evaluated in order; more-specific rules should come first)
+
+Mesodinium spp.:
+  genus:
+    - Mesodinium
+
+Cryptophytes:
+  phylum:
+    - Cryptophyta
+
+Silicoflagellates:
+  class:
+    - Dictyochophyceae

@@ -121,6 +121,42 @@ The following files in the package control default behaviour. After editing
 them, rebuild and reinstall the package with `devtools::install()` for changes
 to take effect.
 
+### Phytoplankton group definitions {#phytoplankton-group-definitions}
+
+`inst/config/phyto_groups.yaml` controls how taxa are assigned to the groups
+shown in the pie charts and passed to the LLM prompts. Each top-level key is a
+group name (e.g. `Diatoms`, `Mesodinium spp.`). Groups marked with a `role`
+field map to the three built-in SHARK4R parameters; all others are passed as
+custom groups and are evaluated in order — place more-specific rules
+(genus-level) before broader ones (class-level).
+
+Supported matching criteria are `class`, `phylum`, `order`, `family`, and
+`genus`. Any combination can be used within one group entry.
+
+**Built-in (core) groups** use the `role` key:
+
+| Role | SHARK4R parameter |
+|---|---|
+| `diatoms` | `diatom_class` |
+| `dinoflagellates` | `dinoflagellate_class` |
+| `cyanobacteria` | `cyanobacteria_class` / `cyanobacteria_phylum` |
+
+**Example — adding a new custom group:**
+
+```yaml
+Haptophytes:
+  class:
+    - Coccolithophyceae
+    - Pavlovophyceae
+```
+
+Place this entry *before* any broader group (e.g. `Other`) that would otherwise
+capture haptophyte classes first.
+
+After adding a group, also add the corresponding colour entry to
+`create_group_map()` in `R/plots.R` so the new group gets a distinct colour in
+the pie chart.
+
 ### Editing the LLM style guide {#editing-the-llm-style-guide}
 
 `inst/extdata/report_writing_guide.md` is the system prompt sent to the LLM

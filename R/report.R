@@ -141,14 +141,9 @@ generate_report <- function(output_path, station_summary,
     taxa <- taxa[!is.na(taxa$name), ]
     if (nrow(taxa) > 0) {
       groups <- tryCatch(
-        SHARK4R::assign_phytoplankton_group(
+        assign_phyto_groups(
           scientific_names = taxa$name,
-          aphia_ids        = taxa$AphiaID,
-          custom_groups    = list(
-            Cryptophytes = list(phylum = "Cryptophyta"),
-            `Mesodinium spp.` = list(genus = "Mesodinium")
-          ),
-          verbose          = FALSE
+          aphia_ids        = taxa$AphiaID
         ),
         error = function(e) NULL
       )
@@ -205,19 +200,14 @@ generate_report <- function(output_path, station_summary,
     "heterotrophic organisms and other non-chlorophyll-containing cells ",
     "may be underrepresented. In this report we summarize the findings ",
     "from selected monitoring stations. ",
-    "Phytoplankton identification is based on ",
-    "automated image classification by an AI model, validated by ",
-    if (nzchar(annotator)) paste0(annotator, ", SMHI") else "SMHI",
-    "."
+    paste0(c(
+      "Phytoplankton identification is based on ",
+      "automated image classification by an AI model, validated by ",
+      if (nzchar(annotator)) paste0(annotator, ", SMHI") else "SMHI",
+      ".",
+      if (use_llm) " Report text was drafted with the assistance of a large language model." else NULL
+    ), collapse = "")
   )
-  if (use_llm) {
-    intro <- paste0(
-      intro,
-      " Report text was drafted with the assistance of a large language model ",
-      "and reviewed by ",
-      if (nzchar(annotator)) paste0(annotator, ".") else "the analyst."
-    )
-  }
   has_hab <- !is.null(taxa_lookup) &&
     "HAB" %in% names(taxa_lookup) &&
     any(taxa_lookup$HAB == TRUE, na.rm = TRUE)
@@ -253,27 +243,7 @@ generate_report <- function(output_path, station_summary,
     }
   }
 
-  # Swedish summary
-  doc <- officer::body_add_par(doc, "Sammanfattning", style = "heading 2")
-  swedish_text <- "[Skriv sammanfattning pa svenska har.]"
-  if (use_llm) {
-    report_progress("Swedish summary")
-    swedish_text <- tryCatch(
-      generate_swedish_summary(station_summary, taxa_lookup, cruise_info,
-                               phyto_groups = phyto_groups,
-                               provider = llm_provider,
-                               unclassified_fractions = unclassified_fractions),
-      error = function(e) {
-        warning("LLM Swedish summary failed: ", e$message, call. = FALSE)
-        "[Skriv sammanfattning pa svenska har. (LLM generation failed)]"
-      }
-    )
-  }
-  doc <- add_formatted_par(doc, swedish_text, taxa_lookup, style = "Normal")
-  doc <- officer::body_add_par(doc, "")
-
-  # English summary
-  doc <- officer::body_add_par(doc, "Summary", style = "heading 2")
+  # English summary (generated first; Swedish is a translation of this)
   english_text <- "[Write English summary here.]"
   if (use_llm) {
     report_progress("English summary")
@@ -288,6 +258,24 @@ generate_report <- function(output_path, station_summary,
       }
     )
   }
+
+  # Swedish summary (translation of the English summary)
+  doc <- officer::body_add_par(doc, "Sammanfattning", style = "heading 2")
+  swedish_text <- "[Skriv sammanfattning pa svenska har.]"
+  if (use_llm) {
+    report_progress("Swedish summary")
+    swedish_text <- tryCatch(
+      translate_summary_to_swedish(english_text, provider = llm_provider),
+      error = function(e) {
+        warning("LLM Swedish translation failed: ", e$message, call. = FALSE)
+        "[Skriv sammanfattning pa svenska har. (LLM generation failed)]"
+      }
+    )
+  }
+  doc <- add_formatted_par(doc, swedish_text, taxa_lookup, style = "Normal")
+  doc <- officer::body_add_par(doc, "")
+
+  doc <- officer::body_add_par(doc, "Summary", style = "heading 2")
   doc <- add_formatted_par(doc, english_text, taxa_lookup, style = "Normal")
 
   # Summary table
@@ -372,7 +360,8 @@ generate_report <- function(output_path, station_summary,
   doc <- officer::body_add_par(doc, "")
 
   if (!is.null(image_counts) && nrow(image_counts) > 0) {
-    img_map <- create_image_count_map(image_counts)
+    img_map <- create_image_count_map(image_counts,
+                                      title = "IFCB image concentration")
     doc <- add_centered_plot(doc, img_map, cleanup,
       width = 7, height = 4, display_width = 5.8, display_height = 3.2)
     total_images <- format(sum(image_counts$n_images, na.rm = TRUE),
@@ -1044,16 +1033,8 @@ add_front_page <- function(doc, cleanup,
     doc <- officer::body_add_fpar(doc, officer::fpar(
       officer::ftext(
         paste0(
-          "Phytoplankton group composition at AlgAware stations. ",
-          "Pie slices show relative group composition,"
-        ),
-        officer::fp_text(font.size = 10, font.family = font)
-      ),
-      officer::run_linebreak(),
-      officer::ftext(
-        paste0(
-          "and pie size shows relative total carbon biomass concentration ",
-          "among stations. No absolute size legend is shown."
+          "Phytoplankton group composition at AlgAware stations based on carbon concentration. ",
+          "Pie slices show relative group composition; pie size shows relative total carbon concentration among stations."
         ),
         officer::fp_text(font.size = 10, font.family = font)
       ),

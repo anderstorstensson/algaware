@@ -141,6 +141,7 @@ reference:
       - generate_frontpage_mosaic
       - generate_english_summary
       - generate_swedish_summary
+      - translate_summary_to_swedish
       - generate_station_description
 
   - title: Database
@@ -152,6 +153,7 @@ reference:
       - save_global_class_list_db
       - load_algaware_stations
       - load_taxa_lookup
+      - assign_phyto_groups
       - get_db_path
 
   - title: Mosaics

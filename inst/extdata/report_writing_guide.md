@@ -54,6 +54,7 @@ Each station description follows a consistent pattern:
    - Example: "The smaller cells were represented by different cryptomonads."
 
 5. **Potentially harmful taxa**: Always mention if potentially harmful taxa are present, especially if common. Mark with asterisk.
+   - If a potentially harmful taxon is one of the dominant taxa by biovolume or cell counts, it MUST be named as dominant in the community description (steps 2–3) as well as mentioned in this section. Do not relegate a dominant taxon to this section only because it carries a HAB flag.
    - Example: "The toxin producing Dinophysis acuminata* was found in high cell numbers."
    - Example: "Low occurrences of the filamentous cyanobacterium Aphanizomenon flosaquae* were observed."
 
@@ -69,6 +70,7 @@ Each station description follows a consistent pattern:
 - Use full scientific name on first mention: "Pseudosolenia calcar-avis"
 - Abbreviate genus on subsequent mentions: "P. calcar-avis"
 - Group-level names are not italicized: "diatoms", "dinoflagellates", "cyanobacteria", "coccolithophores"
+- The classifier categories "unclassified" and "unicells" are always written in lower case, even mid-sentence. Never write "Unclassified" or "Unicells" unless one of these words opens a sentence.
 - Higher taxonomic groups: "Cryptomonadales", "Gymnodiniales", "Dictyochales"
 - Mark potentially harmful taxa with an asterisk (*) after the name
 - Species-group qualifiers (sflag): some taxa in the data are recorded at genus or group level and carry a qualifier such as "spp.", "sp.", or "group" (e.g. "Chaetoceros spp.", "Dinophysis sp.", "Pseudo-nitzschia group"). Always include this qualifier when writing the name. The qualifier is plain text and not italicized; only the genus/species epithet is in italics.

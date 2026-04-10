@@ -1,3 +1,75 @@
+#' Load phytoplankton group configuration from YAML
+#'
+#' Reads \code{inst/config/phyto_groups.yaml} and returns a list with two
+#' elements: \code{core} (named list of class/phylum vectors for the three
+#' built-in SHARK4R groups) and \code{custom} (named list suitable for the
+#' \code{custom_groups} argument of
+#' \code{SHARK4R::assign_phytoplankton_group()}).
+#'
+#' @return Named list with elements \code{core} and \code{custom}.
+#' @keywords internal
+load_phyto_group_config <- function() {
+  path <- system.file("config", "phyto_groups.yaml", package = "algaware")
+  if (!nzchar(path)) {
+    stop("inst/config/phyto_groups.yaml not found in algaware package")
+  }
+  cfg <- yaml::read_yaml(path)
+
+  role_map <- list(
+    diatoms        = "Diatoms",
+    dinoflagellates = "Dinoflagellates",
+    cyanobacteria  = "Cyanobacteria"
+  )
+
+  core   <- list()
+  custom <- list()
+
+  for (group_name in names(cfg)) {
+    grp  <- cfg[[group_name]]
+    role <- grp[["role"]]
+    criteria <- grp[setdiff(names(grp), "role")]
+
+    if (!is.null(role) && role %in% names(role_map)) {
+      core[[role]] <- criteria
+    } else {
+      custom[[group_name]] <- criteria
+    }
+  }
+
+  list(core = core, custom = custom)
+}
+
+#' Assign phytoplankton groups using the bundled YAML configuration
+#'
+#' Thin wrapper around \code{SHARK4R::assign_phytoplankton_group()} that
+#' reads group definitions from \code{inst/config/phyto_groups.yaml} so
+#' class/phylum mappings do not need to be hardcoded in application code.
+#'
+#' @param scientific_names Character vector of scientific names.
+#' @param aphia_ids Integer vector of AphiaIDs (same length), or \code{NULL}.
+#' @param verbose Passed to \code{SHARK4R::assign_phytoplankton_group()}.
+#' @return Return value of \code{SHARK4R::assign_phytoplankton_group()}.
+#' @export
+assign_phyto_groups <- function(scientific_names, aphia_ids = NULL,
+                                verbose = FALSE) {
+  cfg <- load_phyto_group_config()
+
+  diatom_cfg  <- cfg$core[["diatoms"]]
+  dino_cfg    <- cfg$core[["dinoflagellates"]]
+  cyano_cfg   <- cfg$core[["cyanobacteria"]]
+
+  SHARK4R::assign_phytoplankton_group(
+    scientific_names     = scientific_names,
+    aphia_ids            = aphia_ids,
+    diatom_class         = diatom_cfg[["class"]]   %||% character(0),
+    dinoflagellate_class = dino_cfg[["class"]]     %||% character(0),
+    cyanobacteria_class  = cyano_cfg[["class"]]    %||% character(0),
+    cyanobacteria_phylum = cyano_cfg[["phylum"]]   %||% character(0),
+    custom_groups        = cfg$custom,
+    verbose              = verbose
+  )
+}
+
 #' Load the bundled taxa lookup table
 #'
 #' Returns the pre-built mapping from classifier class names to WoRMS

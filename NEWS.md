@@ -46,7 +46,12 @@ First release.
 
 ## Maps and plots
 
-- Station maps: image count, phytoplankton group composition pie chart, and chlorophyll maps.
+- Station maps: image count, phytoplankton group composition pie chart
+  (Diatoms, Dinoflagellates, Cyanobacteria, Cryptophytes, Mesodinium spp.,
+  Silicoflagellates, Other), and chlorophyll maps.
+- Cyanobacteria pie slice colour: teal-cyan (`#14B8A6`).
+- Image count map legend: "Images (counts/L)"; width matched to chlorophyll
+  map so y-axes align in the Word report.
 - Chlorophyll source selector: FerryBox, CTD fluorescence, LIMS bottle
   (0–20 m), or LIMS hose-integrated (0–10 m).
 - Regional heatmaps and stacked bar charts for Baltic Sea and West Coast.
@@ -79,7 +84,14 @@ First release.
   descriptions guided by a configurable writing guide
   (`inst/extdata/report_writing_guide.md`).
 - HAB taxa are deterministically marked with `*` regardless of LLM output.
-- Rate-limiting and retry logic for Gemini free-tier compatibility.
+- Default OpenAI model: `gpt-5.1`. Override via `OPENAI_MODEL` environment
+  variable.
+- Retry on HTTP 429 (rate-limited) and 503 (service overload) with exponential
+  back-off up to 120 s.
+- Bloom alert instructions appended to prompts when conditions are met: spring
+  bloom (West Coast, Jan–Feb, diatoms > 50 % biovolume at any station,
+  chl > 3 µg/L) and cyanobacterial bloom (Baltic, Jun–Aug, cyanobacteria
+  > 50 % biovolume at any station, chl > 3 µg/L).
 
 ## Taxa lookup and warning levels
 
@@ -98,3 +110,6 @@ First release.
 - `inst/extdata/annual_1991-2020_statistics_chl20m.txt` — Chl-a climatology
   for CTD time-series ribbon.
 - `inst/extdata/report_writing_guide.md` — LLM system prompt / style guide.
+- `inst/config/phyto_groups.yaml` — phytoplankton group definitions (class,
+  phylum, genus mappings for WoRMS lookup). Edit to add or rename groups
+  without touching R code. Read via the exported `assign_phyto_groups()`.

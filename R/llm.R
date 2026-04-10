@@ -35,11 +35,25 @@ ensure_hab_asterisks <- function(text, taxa_lookup) {
 
   for (nm in all_names) {
     escaped <- gsub("([.\\\\|()\\[\\]\\{\\}^$+?])", "\\\\\\1", nm)
-    # For single-word genus names consume an optional trailing "spp." / "sp."
-    # so the asterisk lands after the full written form.
-    suffix <- if (!grepl(" ", nm)) "(?:\\s+spp?\\.)?" else ""
-    pattern <- paste0("(", escaped, suffix, ")(?!\\*)")
-    text <- gsub(pattern, "\\1*", text, perl = TRUE)
+    if (!grepl(" ", nm)) {
+      # Single-word genus names need three passes to avoid regex backtracking
+      # that would otherwise cause double asterisks like "Genus* spp.*".
+      #
+      # Pass 1: Remove a stray asterisk placed between the genus and spp. by
+      #         the LLM ("Genus* spp.*" -> "Genus spp.*").
+      text <- gsub(paste0("(", escaped, ")\\*(\\s+spp?\\.)"),
+                   "\\1\\2", text, perl = TRUE)
+      # Pass 2: Add * after the full "Genus spp." / "Genus sp." form if absent.
+      text <- gsub(paste0("(", escaped, "\\s+spp?\\.)(?!\\*)"),
+                   "\\1*", text, perl = TRUE)
+      # Pass 3: Add * after a bare genus that is not followed by spp. / sp.
+      #         and not already marked.
+      text <- gsub(paste0("(", escaped, ")(?!\\s+spp?\\.)(?!\\*)"),
+                   "\\1*", text, perl = TRUE)
+    } else {
+      pattern <- paste0("(", escaped, ")(?!\\*)")
+      text <- gsub(pattern, "\\1*", text, perl = TRUE)
+    }
   }
 
   text
@@ -249,7 +263,7 @@ llm_provider <- function() {
 #' @return Character string with the model name.
 #' @export
 llm_model_name <- function(provider = llm_provider()) {
-  defaults <- c(openai = "gpt-4.1", gemini = "gemini-2.5-flash")
+  defaults <- c(openai = "gpt-5.1", gemini = "gemini-2.5-flash")
   env_vars <- c(openai = "OPENAI_MODEL", gemini = "GEMINI_MODEL")
 
   if (!provider %in% names(defaults)) return("none")
@@ -273,8 +287,10 @@ load_writing_guide <- function() {
 
 #' Normalize phytoplankton groups for report text
 #'
-#' Keeps the detailed plotting groups and also derives the collapsed
-#' four-group view used for the species-by-group prose.
+#' Standardises the group column name from either \code{phyto_group} or
+#' \code{phyto_group.plankton_group} into \code{detailed_group} and
+#' \code{text_group} (identical \u2014 all groups from the YAML config are
+#' preserved in both columns).
 #'
 #' @param phyto_groups Data frame with columns \code{name}, \code{AphiaID},
 #'   and either \code{phyto_group} or \code{phyto_group.plankton_group}.
@@ -299,11 +315,6 @@ normalize_phyto_groups_for_text <- function(phyto_groups) {
   out$detailed_group <- as.character(phyto_groups[[group_col]])
   out$detailed_group[is.na(out$detailed_group)] <- "Other"
   out$text_group <- out$detailed_group
-  out$text_group <- ifelse(
-    out$text_group %in% c("Diatoms", "Dinoflagellates", "Cyanobacteria"),
-    out$text_group,
-    "Other"
-  )
   unique(out)
 }
 
@@ -359,7 +370,8 @@ attach_text_groups <- function(x, phyto_groups = NULL) {
 #' @param heading Heading line for the block.
 #' @return Character string.
 #' @keywords internal
-build_station_group_summary <- function(station_data, group_col, heading) {
+build_station_group_summary <- function(station_data, group_col, heading,
+                                        n_top = NULL) {
   if (!group_col %in% names(station_data) || nrow(station_data) == 0) {
     return("")
   }
@@ -376,6 +388,7 @@ build_station_group_summary <- function(station_data, group_col, heading) {
   totals <- totals[totals$biovolume_mm3_per_liter > 0, , drop = FALSE]
   if (nrow(totals) == 0) return("")
   totals <- totals[order(-totals$biovolume_mm3_per_liter), , drop = FALSE]
+  if (!is.null(n_top)) totals <- utils::head(totals, n_top)
 
   total_bv <- sum(station_data$biovolume_mm3_per_liter, na.rm = TRUE)
   group_lines <- vapply(seq_len(nrow(totals)), function(i) {
@@ -455,12 +468,13 @@ format_station_data_for_prompt <- function(station_data, taxa_lookup = NULL,
   dominant_group_block <- build_station_group_summary(
     station_data,
     group_col = "detailed_group",
-    heading = "Provided dominant-group assignments for text (use these exact groups for the Dominant groups section; do not infer group membership from scientific names):"
+    heading = "All phytoplankton groups present (use these exact group names; do not infer group membership from scientific names):"
   )
   key_species_group_block <- build_station_group_summary(
     station_data,
     group_col = "text_group",
-    heading = "Provided four-group assignments for the Key species by group section:"
+    heading = "Top 3 groups by biovolume (provide detailed species breakdown for these groups only; mention remaining groups only briefly):",
+    n_top = 3
   )
 
   # Identify HAB species (using display names)
@@ -860,9 +874,11 @@ call_gemini <- function(system_prompt, user_prompt,
     httr2::req_body_json(body) |>
     httr2::req_timeout(180) |>
     httr2::req_retry(
-      max_tries = 2,
-      is_transient = \(resp) httr2::resp_status(resp) == 429,
-      backoff = \(attempt) gemini_delay * attempt
+      max_tries = 5,
+      # 429 = rate-limited; 503 = service overload -- both are transient
+      is_transient = \(resp) httr2::resp_status(resp) %in% c(429L, 503L),
+      # Exponential backoff: 15 s, 30 s, 60 s, 120 s (capped)
+      backoff = \(attempt) min(gemini_delay * 2^(attempt - 1L), 120)
     ) |>
     httr2::req_perform()
 
@@ -920,6 +936,98 @@ strip_markdown <- function(text) {
   trimws(text)
 }
 
+#' Detect bloom conditions and return language-specific prompt instructions
+#'
+#' Checks whether cruise data meets the criteria for a spring bloom (West Coast,
+#' Jan-Feb: diatom-dominated, chl > 3 ug/L) or a cyanobacterial bloom (Baltic,
+#' Jun-Aug: cyanobacteria-dominated, chl > 3 ug/L) and returns a block of extra
+#' instructions to append to the LLM prompt when either condition is met.
+#'
+#' @param station_summary Full station_summary data frame.
+#' @param phyto_groups Optional phytoplankton group table.
+#' @param lang \code{"en"} (English) or \code{"sv"} (Swedish).
+#' @return Character string with bloom alert instructions, or \code{""}.
+#' @keywords internal
+bloom_alert_note <- function(station_summary, phyto_groups = NULL,
+                             lang = "en") {
+  if (is.null(station_summary) || nrow(station_summary) == 0) return("")
+
+  # Extract cruise month from the earliest visit date available
+  date_col <- if ("visit_date" %in% names(station_summary)) "visit_date"
+              else if ("median_time" %in% names(station_summary)) "median_time"
+              else NULL
+  if (is.null(date_col)) return("")
+  cruise_month <- as.integer(format(as.Date(station_summary[[date_col]][1]), "%m"))
+
+  # Attach group labels (text_group: Diatoms / Dinoflagellates / Cyanobacteria / Other)
+  ss <- attach_text_groups(station_summary, phyto_groups)
+
+  alerts <- character(0)
+
+  # Helper: TRUE if diatoms/cyano exceed `threshold` fraction of biovolume at
+  # ANY single station (visit_id) in the supplied subset.
+  any_station_dominant <- function(df, group, threshold = 0.5) {
+    if (nrow(df) == 0 || !"visit_id" %in% names(df)) return(FALSE)
+    any(vapply(unique(df$visit_id), function(vid) {
+      rows <- df[df$visit_id == vid, , drop = FALSE]
+      total <- sum(rows$biovolume_mm3_per_liter, na.rm = TRUE)
+      if (total <= 0) return(FALSE)
+      grp <- sum(rows$biovolume_mm3_per_liter[rows$text_group == group],
+                 na.rm = TRUE)
+      (grp / total) > threshold
+    }, logical(1L)))
+  }
+
+  # --- Spring bloom: West Coast, January-February ---
+  if (cruise_month %in% 1:2) {
+    wc <- ss[!is.na(ss$COAST) & ss$COAST != "EAST", , drop = FALSE]
+    if (nrow(wc) > 0) {
+      high_chl       <- any(!is.na(wc$chl_mean) & wc$chl_mean > 3)
+      diatom_dominant <- any_station_dominant(wc, "Diatoms", 0.5)
+      if (high_chl && diatom_dominant) alerts <- c(alerts, "spring_bloom")
+    }
+  }
+
+  # --- Cyanobacterial bloom: Baltic Sea, June-August ---
+  if (cruise_month %in% 6:8) {
+    bal <- ss[!is.na(ss$COAST) & ss$COAST == "EAST", , drop = FALSE]
+    if (nrow(bal) > 0) {
+      high_chl      <- any(!is.na(bal$chl_mean) & bal$chl_mean > 3)
+      cyano_dominant <- any_station_dominant(bal, "Cyanobacteria", 0.5)
+      if (high_chl && cyano_dominant) alerts <- c(alerts, "cyano_bloom")
+    }
+  }
+
+  if (length(alerts) == 0) return("")
+
+  notes <- character(0)
+  if ("spring_bloom" %in% alerts) {
+    notes <- c(notes, if (lang == "sv") {
+      paste0("DATA INDIKERAR V\u00c5RBLOMNING p\u00e5 v\u00e4stkusten (kiselalger dominerar, ",
+             "klorofyll > 3 \u00b5g/L). Framh\u00e4v explicit att en v\u00e5rblomning ",
+             "p\u00e5g\u00e5r i stycket om v\u00e4stkusten.")
+    } else {
+      paste0("DATA INDICATES A SPRING BLOOM on the West Coast (diatoms dominant, ",
+             "chlorophyll > 3 \u00b5g/L). Explicitly highlight that a spring bloom ",
+             "is occurring in the West Coast paragraph.")
+    })
+  }
+  if ("cyano_bloom" %in% alerts) {
+    notes <- c(notes, if (lang == "sv") {
+      paste0("DATA INDIKERAR CYANOBAKTERIABLOMNING i \u00d6stersj\u00f6n (cyanobakterier dominerar, ",
+             "klorofyll > 3 \u00b5g/L). Framh\u00e4v explicit att en cyanobakteriablomning ",
+             "p\u00e5g\u00e5r i stycket om \u00d6stersj\u00f6n.")
+    } else {
+      paste0("DATA INDICATES A CYANOBACTERIAL BLOOM in the Baltic Sea (cyanobacteria dominant, ",
+             "chlorophyll > 3 \u00b5g/L). Explicitly highlight that a cyanobacterial bloom ",
+             "is occurring in the Baltic Sea paragraph.")
+    })
+  }
+
+  paste0("\n\nBLOOM ALERTS -- MUST BE MENTIONED:\n",
+         paste(notes, collapse = "\n"))
+}
+
 #' Generate the Swedish summary text
 #'
 #' @param station_summary Full station_summary data frame.
@@ -940,6 +1048,7 @@ generate_swedish_summary <- function(station_summary, taxa_lookup = NULL,
   cruise_data <- format_cruise_summary_for_prompt(station_summary, taxa_lookup,
                                                   unclassified_fractions = unclassified_fractions,
                                                   phyto_groups = phyto_groups)
+  bloom_note <- bloom_alert_note(station_summary, phyto_groups, lang = "sv")
 
   system_prompt <- paste0(
     "You are a marine biologist writing phytoplankton monitoring reports ",
@@ -968,6 +1077,8 @@ generate_swedish_summary <- function(station_summary, taxa_lookup = NULL,
     "'kryptomonader' (not 'kryptofyter'). ",
     "Use the provided phytoplankton group assignments in the prompt data. ",
     "Do not infer group membership from scientific names yourself. ",
+    "Om ett potentiellt skadligt taxon dominerar biovolymen vid en station, ",
+    "beskriv det som dominant \u2014 tona inte ned dess f\u00f6rekomst enbart p\u00e5 grund av att det \u00e4r potentiellt skadligt. ",
     "Compare klorofyllfluorescens between stations and relate it to the ",
     "IFCB biovolume data where relevant. ",
     "If any station data lines contain 'WARNING EXCEEDED', you MUST explicitly ",
@@ -976,7 +1087,48 @@ generate_swedish_summary <- function(station_summary, taxa_lookup = NULL,
     "the actual abundance in cells/L and the threshold value. ",
     "Output ONLY the summary text, no headings. ",
     "Output plain text only -- no markdown formatting whatsoever. ",
-    "The only asterisk allowed is the harmful taxon marker directly after a species name."
+    "The only asterisk allowed is the harmful taxon marker placed after the FULL taxon mention. ",
+    "Place it after 'spp.' or 'sp.' when present (e.g. 'Pseudochattonella spp.*', ",
+    "NOT 'Pseudochattonella* spp.*'). Never place an asterisk after the genus name alone ",
+    "when 'spp.' or 'sp.' follows.",
+    bloom_note
+  )
+
+  call_llm(system_prompt, user_prompt, provider = provider)
+}
+
+#' Translate an English summary to Swedish
+#'
+#' @param english_text Character string with the English summary to translate.
+#' @param provider LLM provider (\code{"openai"} or \code{"gemini"}).
+#'   NULL auto-detects.
+#' @return Character string with Swedish translation.
+#' @export
+translate_summary_to_swedish <- function(english_text, provider = NULL) {
+  system_prompt <- paste0(
+    "You are a translator specializing in marine biology reports for the Swedish ",
+    "AlgAware programme (SMHI). Translate scientific phytoplankton monitoring text ",
+    "from English to Swedish accurately and completely."
+  )
+
+  user_prompt <- paste0(
+    "Translate the following English phytoplankton monitoring summary to Swedish. ",
+    "Rules:\n",
+    "- Translate every sentence; do not omit or condense any content.\n",
+    "- Use correct Swedish scientific terminology: ",
+    "'klorofyllfluorescens' (not 'chlorophyll fluorescence'), ",
+    "'biovolym' (not 'biovolume'), ",
+    "'kiselalger' (not 'diatom\u00e9er' or 'diatomeer'), ",
+    "'v\u00e4xtplankton' (not 'fytoplankton'), ",
+    "'expedition' (not 'kryssningen'), ",
+    "'kryptomonader' (not 'kryptofyter'), ",
+    "'klorofyll' (not 'chlorophyll').\n",
+    "- Keep all species names in Latin (italics not needed in plain text).\n",
+    "- Keep the asterisk (*) immediately after any species name that has one ",
+    "(it marks potentially harmful taxa).\n",
+    "- Output plain text only -- no markdown, no headings, no extra commentary.\n\n",
+    "English text to translate:\n\n",
+    english_text
   )
 
   call_llm(system_prompt, user_prompt, provider = provider)
@@ -1003,6 +1155,7 @@ generate_english_summary <- function(station_summary, taxa_lookup = NULL,
   cruise_data <- format_cruise_summary_for_prompt(station_summary, taxa_lookup,
                                                   unclassified_fractions = unclassified_fractions,
                                                   phyto_groups = phyto_groups)
+  bloom_note <- bloom_alert_note(station_summary, phyto_groups, lang = "en")
 
   system_prompt <- paste0(
     "You are a marine biologist writing phytoplankton monitoring reports ",
@@ -1019,13 +1172,20 @@ generate_english_summary <- function(station_summary, taxa_lookup = NULL,
     "harmful taxa terminology section. ",
     "Use the provided phytoplankton group assignments in the prompt data. ",
     "Do not infer group membership from scientific names yourself. ",
+    "If a potentially harmful taxon dominates by biovolume at a station, name it as ",
+    "dominant in the community description \u2014 do not downplay its abundance simply because ",
+    "it is potentially harmful. ",
     "If any station data lines contain 'WARNING EXCEEDED', you MUST explicitly ",
     "state in the summary that the abundance of the named taxon exceeds the ",
     "recommended warning level at that station, and include the actual abundance ",
     "in cells/L and the threshold value. ",
     "Output ONLY the summary text, no headings or extra commentary. ",
     "Output plain text only -- no markdown formatting whatsoever. ",
-    "The only asterisk allowed is the harmful taxon marker directly after a species name."
+    "The only asterisk allowed is the harmful taxon marker placed after the FULL taxon mention. ",
+    "Place it after 'spp.' or 'sp.' when present (e.g. 'Pseudochattonella spp.*', ",
+    "NOT 'Pseudochattonella* spp.*'). Never place an asterisk after the genus name alone ",
+    "when 'spp.' or 'sp.' follows.",
+    bloom_note
   )
 
   call_llm(system_prompt, user_prompt, provider = provider)
@@ -1095,14 +1255,25 @@ generate_station_description <- function(station_data, taxa_lookup = NULL,
     "relative to the other stations visited during this cruise. ",
     "Use the provided phytoplankton group assignments in the prompt data. ",
     "Do not infer group membership from scientific names yourself. ",
+    "Use the group names consistently throughout: if a taxon belongs to Silicoflagellates, ",
+    "call it Silicoflagellates everywhere \u2014 never refer to it as 'Others' in one sentence ",
+    "and Silicoflagellates in another. ",
+    "Provide a detailed species breakdown only for the top 3 groups listed in the prompt. ",
+    "Mention any remaining groups in a single brief sentence. ",
     "Taxa marked [HAB] in the data are potentially harmful and must be mentioned. ",
+    "If a [HAB] taxon ranks among the dominant taxa by biovolume, describe it as dominant ",
+    "in the community description \u2014 do not omit it from the dominance narrative just because ",
+    "it also appears in the potentially harmful taxa section. ",
     "If the station data contains an IMPORTANT section about taxa exceeding warning ",
     "levels, you MUST state in the description the actual abundance in cells/L and ",
     "the threshold value (e.g. '2 000 cells/L, exceeding the warning level of ",
     "1 500 cells/L'). ",
     "Output ONLY the description text, no headings or station name. ",
     "Output plain text only -- no markdown formatting whatsoever. ",
-    "The only asterisk allowed is the harmful taxon marker directly after a species name."
+    "The only asterisk allowed is the harmful taxon marker placed after the FULL taxon mention. ",
+    "Place it after 'spp.' or 'sp.' when present (e.g. 'Pseudochattonella spp.*', ",
+    "NOT 'Pseudochattonella* spp.*'). Never place an asterisk after the genus name alone ",
+    "when 'spp.' or 'sp.' follows."
   )
 
   call_llm(system_prompt, user_prompt, provider = provider)

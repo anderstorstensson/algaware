@@ -25,5 +25,6 @@ A ggplot object.
 \description{
 Thin AlgAware-specific wrapper around \code{\link{create_pie_map}}. Draws
 a pie chart at each station showing the relative carbon biomass
-contributed by Diatoms, Dinoflagellates, Cyanobacteria, and Other.
+contributed by Diatoms, Dinoflagellates, Cyanobacteria, Cryptophytes,
+Mesodinium spp., Silicoflagellates, and Other.
 }
