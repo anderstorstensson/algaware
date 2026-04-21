@@ -1,3 +1,9 @@
+# algaware (development version)
+
+## Minor improvements and fixes
+
+- Split llm.R, plots.R and report.R into manageable file sizes
+
 # algaware 0.1.0
 
 First release.
