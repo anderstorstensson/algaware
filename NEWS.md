@@ -61,6 +61,12 @@
   errors.
 - Fix the station description silently falling back to placeholder text when
   a warning-level taxon had a missing cell count (missing sample volume).
+- Gallery robustness fixes: an empty image folder no longer replaces the
+  gallery with an error box (the "No images to display" fallback shows
+  instead); the page indicator resets when the page size changes or a new
+  dataset is loaded; images that fail to load now show their "Not found"
+  placeholder; and a drag-select released over empty space no longer
+  swallows the next image click.
 
 - Fix a crash ("could not find function `build_cruise_info`") when excluding
   a sample in the installed app: the helper is now exported so

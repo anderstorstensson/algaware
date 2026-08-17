@@ -255,8 +255,13 @@ mod_gallery_server <- function(id, rv, config) {
       raw_dir <- file.path(storage, "raw")
       extract_gallery_pngs(imgs, raw_dir, gallery_dir)
 
-      # Register resource path once per session
+      # Register resource path once per session. Create the directory first:
+      # extract_gallery_pngs() only creates it as a side effect of a
+      # successful extraction, and addResourcePath() on a missing directory
+      # errors, replacing the whole gallery with a red error box instead of
+      # the "No images to display" fallback.
       if (!resource_registered) {
+        dir.create(gallery_dir, recursive = TRUE, showWarnings = FALSE)
         resource_name <- paste0("gallery_", session$token)
         shiny::addResourcePath(resource_name, gallery_dir)
         resource_registered <<- TRUE
@@ -422,6 +427,23 @@ mod_gallery_server <- function(id, rv, config) {
       rv$current_class_idx <- 1L
       rv$current_region <- input$region_toggle
       rv$selected_images <- character(0)
+      page(1L)
+    })
+
+    # Reset to page 1 whenever the page size changes, the class index is
+    # changed from outside this module (e.g. the validation module clamping
+    # it after a whole-class relabel), or a new dataset is loaded. The
+    # paginator only clamps what is *displayed*, so a stale page() left the
+    # "page X/Y" label and prev/next buttons out of sync with the screen.
+    shiny::observeEvent(input$page_size, {
+      page(1L)
+    }, ignoreInit = TRUE)
+
+    shiny::observeEvent(rv$current_class_idx, {
+      page(1L)
+    })
+
+    shiny::observeEvent(rv$matched_metadata_all, {
       page(1L)
     })
 

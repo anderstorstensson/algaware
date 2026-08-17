@@ -36,11 +36,16 @@ $(document).ready(function() {
   var selectionBox = null;
 
   // ============================================================================
-  // Image error handling (delegated -- no inline onerror needed)
+  // Image error handling. The DOM 'error' event does not bubble, so jQuery
+  // delegation never fires for it; listen in the capture phase instead so a
+  // 404'd ROI image shows its "Not found" placeholder.
   // ============================================================================
-  $(document).on('error', '.image-card img', function() {
-    $(this).hide().next('.image-placeholder').show();
-  });
+  document.addEventListener('error', function(e) {
+    var img = e.target;
+    if (img.tagName === 'IMG' && $(img).closest('.image-card').length) {
+      $(img).hide().next('.image-placeholder').show();
+    }
+  }, true);
 
   // ============================================================================
   // Measure Tool
@@ -291,5 +296,11 @@ $(document).ready(function() {
 
     selectionBox.remove();
     selectionBox = null;
+
+    // Clear the drag flag after this event cycle: the card click handler
+    // needs it to suppress the click that ends a drag over a card, but a
+    // drag that ends over empty space produces no card click, and a stuck
+    // flag would swallow the user's next single click on an image.
+    setTimeout(function() { wasDragging = false; }, 0);
   });
 });
