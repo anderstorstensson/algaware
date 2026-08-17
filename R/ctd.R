@@ -599,13 +599,22 @@ compute_ctd_chl_avg <- function(ctd_data) {
     station_short = character(0), latitude = numeric(0),
     longitude = numeric(0), chl_mean = numeric(0)))
 
+  # Aggregate by station only (mirroring compute_lims_chl_avg): grouping by
+  # lat/lon as well produced several rows per station when repeat casts
+  # carried slightly different coordinates, and the report's station-summary
+  # merge then duplicated every taxon row of that station, doubling its
+  # biomass in the maps and LLM text.
   agg <- stats::aggregate(
-    chl_fluorescence ~ station_short + latitude + longitude,
+    chl_fluorescence ~ station_short,
     data = shallow,
     FUN = function(x) mean(x, na.rm = TRUE)
   )
   names(agg)[names(agg) == "chl_fluorescence"] <- "chl_mean"
-  agg
+
+  # Representative lat/lon: first occurrence per station
+  coords <- shallow[!duplicated(shallow$station_short),
+                    c("station_short", "latitude", "longitude")]
+  merge(agg, coords, by = "station_short")
 }
 
 #' Compute 0-20m depth-averaged chlorophyll from LIMS bottle data

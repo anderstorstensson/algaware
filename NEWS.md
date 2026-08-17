@@ -84,6 +84,10 @@
 - Generated reports no longer accumulate in the server's temp directory, and
   two sessions generating a report in the same second can no longer
   overwrite each other's file.
+- Fix duplicated station biomass in the report when using the CTD
+  chlorophyll source: repeat casts with slightly different coordinates
+  produced multiple chlorophyll rows per station, and the merge duplicated
+  every taxon row of that station.
 
 - Fix a crash ("could not find function `build_cruise_info`") when excluding
   a sample in the installed app: the helper is now exported so
