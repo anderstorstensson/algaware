@@ -67,6 +67,9 @@
   dataset is loaded; images that fail to load now show their "Not found"
   placeholder; and a drag-select released over empty space no longer
   swallows the next image click.
+- Fix importing a corrections log re-including samples that had been
+  excluded in the Samples tab, which inflated the report's image totals
+  until an exclusion was toggled again.
 
 - Fix a crash ("could not find function `build_cruise_info`") when excluding
   a sample in the installed app: the helper is now exported so

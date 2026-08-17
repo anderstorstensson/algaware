@@ -644,7 +644,17 @@ mod_validation_server <- function(id, rv, config) {
       result$class_name[match_idx[valid]] <- df$new_class[valid]
 
       rv$classifications_all <- result
-      rv$classifications     <- result
+      # `classifications_original` is the full load-time snapshot, so re-apply
+      # the current sample exclusions when deriving the active slice.
+      # Assigning the full set here used to resurrect excluded samples in
+      # rv$classifications, inflating the report's image totals.
+      active <- if (!is.null(rv$matched_metadata_all)) {
+        setdiff(unique(rv$matched_metadata_all$pid), rv$excluded_samples)
+      } else {
+        unique(result$sample_name)
+      }
+      rv$classifications <- result[result$sample_name %in% active, ,
+                                   drop = FALSE]
 
       # Rebuild corrections log (drop custom metadata columns)
       rv$corrections <- df[, c("sample_name", "roi_number",
