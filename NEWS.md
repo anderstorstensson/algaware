@@ -36,6 +36,9 @@
   excluding a sample) permanently leaving the summary tables, heatmaps and
   maps describing the previous sample set. The failure is now reported as a
   notification and recomputation retries on the next tab switch.
+- Fix a failed report generation leaving the previous report downloadable
+  and labelled "Report ready for download"; the download state is now
+  invalidated when a new generation starts.
 
 - Fix a crash ("could not find function `build_cruise_info`") when excluding
   a sample in the installed app: the helper is now exported so

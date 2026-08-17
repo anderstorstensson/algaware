@@ -161,6 +161,13 @@ mod_report_server <- function(id, rv, config, phyto_groups_reactive = NULL) {
     shiny::observeEvent(input$make_report, {
       shiny::req(rv$data_loaded, rv$station_summary)
 
+      # Invalidate any previously generated report up front: if this run
+      # fails, the status text and download button must not keep serving the
+      # stale document as "ready" (a user could otherwise download a report
+      # that lacks their latest corrections).
+      report_path(NULL)
+      corrections_path(NULL)
+
       shiny::withProgress(message = "Generating report...", value = 0, {
         tryCatch({
           # Recompute summaries using corrected classifications
