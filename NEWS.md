@@ -48,6 +48,9 @@
 - Fix CTD casts without a parsable timestamp being silently discarded during
   cast deduplication, which removed the whole station from the CTD tab and
   the report.
+- Fix double-counted biomass for stations listed twice in the SHARK station
+  register with different coordinates (e.g. "G2"): the coordinate join now
+  keeps a single row per station name.
 
 - Fix a crash ("could not find function `build_cruise_info`") when excluding
   a sample in the installed app: the helper is now exported so

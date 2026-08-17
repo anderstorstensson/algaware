@@ -282,11 +282,16 @@ aggregate_station_data <- function(biovolume_data, metadata) {
 
   agg <- compute_per_liter(agg)
 
-  # Join station coordinates
+  # Join station coordinates. The SHARK register contains a handful of
+  # station names listed twice with different coordinates (e.g. "G2");
+  # unique() on the name+coordinate triplet keeps both rows, and the merge
+  # would then duplicate every (visit, taxon) row of that station, doubling
+  # its biomass everywhere downstream. Keep exactly one row per name.
   station_list <- load_shark_stations(verbose = FALSE)
   station_coords <- unique(station_list[, c("STATION_NAME",
                                             "LATITUDE_WGS84_SWEREF99_DD",
                                             "LONGITUDE_WGS84_SWEREF99_DD")])
+  station_coords <- station_coords[!duplicated(station_coords$STATION_NAME), ]
   agg <- merge(agg, station_coords, by = "STATION_NAME", all.x = TRUE)
 
   compute_presence_categories(agg)
