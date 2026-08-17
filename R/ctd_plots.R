@@ -442,6 +442,15 @@ create_ctd_region_figure <- function(ctd_data_full, lims_data_full = NULL,
 
   plots <- list()
 
+  # The x-axis is drawn only on the last panel, so "last" must be the last
+  # station that actually produces a panel -- not the last of the planned
+  # list, which may be skipped below (no casts after deduplication), leaving
+  # the whole figure without any x-axis labels.
+  plotted_stations <- Filter(function(s) {
+    s_ctd <- region_ctd[region_ctd$canonical_name == s, ]
+    nrow(s_ctd) > 0L && nrow(deduplicate_casts(s_ctd)) > 0L
+  }, stations)
+
   for (stn in stations) {
     stn_ctd <- region_ctd[region_ctd$canonical_name == stn, ]
     if (nrow(stn_ctd) == 0L) next
@@ -450,7 +459,7 @@ create_ctd_region_figure <- function(ctd_data_full, lims_data_full = NULL,
     stn_ctd <- deduplicate_casts(stn_ctd)
     if (nrow(stn_ctd) == 0L) next
 
-    is_last <- identical(stn, stations[length(stations)])
+    is_last <- identical(stn, plotted_stations[[length(plotted_stations)]])
 
     profile_dates <- sort(unique(stn_ctd$sample_date[
       !is.na(stn_ctd$sample_date)]))

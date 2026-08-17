@@ -70,6 +70,11 @@
 - Fix importing a corrections log re-including samples that had been
   excluded in the Samples tab, which inflated the report's image totals
   until an exclusion was toggled again.
+- Fix a failed CTD reload keeping the previous cruise's CTD/LIMS data loaded
+  and reportable; the CTD state is now cleared when a new load starts.
+- Fix the regional CTD figure losing all x-axis labels when the last station
+  in the region produced no panel (e.g. all its casts were deduplicated
+  away).
 
 - Fix a crash ("could not find function `build_cruise_info`") when excluding
   a sample in the installed app: the helper is now exported so

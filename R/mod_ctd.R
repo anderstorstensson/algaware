@@ -135,6 +135,16 @@ mod_ctd_server <- function(id, config, rv) {
 
       shiny::withProgress(message = "Loading CTD data...", value = 0, {
         tryCatch({
+          # Invalidate the previous load first: if this load fails or finds
+          # no matching stations, the CTD tab and the report must not keep
+          # using the previous cruise's profiles as if they belonged to the
+          # newly selected folder.
+          rv$ctd_loaded     <- FALSE
+          rv$ctd_data_full  <- NULL
+          rv$lims_data_full <- NULL
+          rv$ctd_data       <- NULL
+          rv$lims_data      <- NULL
+
           # Load reference tables
           station_mapper    <- load_station_mapper()
           standard_stations <- load_standard_stations()
