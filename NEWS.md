@@ -75,6 +75,9 @@
 - Fix the regional CTD figure losing all x-axis labels when the last station
   in the region produced no panel (e.g. all its casts were deduplicated
   away).
+- Fix closing one app session blanking the front-page mosaic thumbnails in
+  all other open sessions of the same R process; the image resource path is
+  now per session.
 
 - Fix a crash ("could not find function `build_cruise_info`") when excluding
   a sample in the installed app: the helper is now exported so

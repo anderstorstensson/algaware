@@ -54,12 +54,18 @@ mod_frontpage_server <- function(id, rv, config) {
   shiny::moduleServer(id, function(input, output, session) {
     ns <- session$ns
 
-    # Session temp directory for extracted images
-    fp_dir <- file.path(tempdir(), "algaware_frontpage")
+    # Session temp directory for extracted images. Both the directory and
+    # the resource prefix are namespaced by session token: tempdir() and
+    # resource paths are per R *process*, so a shared "fp_imgs" prefix meant
+    # one session ending removed the path for every other live session,
+    # blanking their thumbnails until an app restart.
+    fp_prefix <- paste0("fp_imgs_", session$token)
+    fp_dir <- file.path(tempdir(), fp_prefix)
     dir.create(fp_dir, recursive = TRUE, showWarnings = FALSE)
-    shiny::addResourcePath("fp_imgs", fp_dir)
+    shiny::addResourcePath(fp_prefix, fp_dir)
     session$onSessionEnded(function() {
-      shiny::removeResourcePath("fp_imgs")
+      shiny::removeResourcePath(fp_prefix)
+      unlink(fp_dir, recursive = TRUE)
     })
 
     # Per-region state: list of image info objects keyed by taxon
@@ -306,7 +312,7 @@ mod_frontpage_server <- function(id, rv, config) {
         img_info <- images[[taxon]]
         # Build a relative URL for the served resource
         rel_path <- sub(paste0(fp_dir, "/"), "", img_info$path, fixed = TRUE)
-        img_url <- paste0("fp_imgs/", rel_path)
+        img_url <- paste0(fp_prefix, "/", rel_path)
 
         shiny::div(
           style = paste0(
