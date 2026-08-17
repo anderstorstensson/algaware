@@ -1007,3 +1007,22 @@ test_that("format_report_paragraph ignores NA italic flags", {
   expect_false(any(italics & grepl("\\bNA\\b", chunks)))
   expect_true(any(italics & chunks == "Skeletonema marinoi"))
 })
+
+test_that("extract_llm_content raises on missing or empty content", {
+  # Regression: NULL content (refusal / safety block) silently became
+  # character(0) and crashed report assembly outside every tryCatch.
+  expect_error(algaware:::extract_llm_content(list(choices = list())),
+               "no choices")
+  expect_error(
+    algaware:::extract_llm_content(list(choices = list(
+      list(message = list(content = NULL), finish_reason = "content_filter")
+    ))),
+    "empty content.*content_filter"
+  )
+  expect_equal(
+    algaware:::extract_llm_content(list(choices = list(
+      list(message = list(content = "Hello"))
+    ))),
+    "Hello"
+  )
+})

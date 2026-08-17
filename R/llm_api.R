@@ -2,11 +2,36 @@
 .llm_state <- new.env(parent = emptyenv())
 .llm_state$gemini_last_call <- NULL
 
+#' Extract and validate the text content of a chat-completions response
+#'
+#' A refusal or safety-blocked response carries a NULL \code{content};
+#' passing that on silently yielded \code{character(0)}, which slipped past
+#' the callers' tryCatch fallbacks and crashed report assembly much later
+#' with "subscript out of bounds". Raising here instead lets the existing
+#' placeholder-text fallbacks handle the failure.
+#'
+#' @param result Parsed JSON body of a chat-completions response.
+#' @return Length-1 character string.
+#' @keywords internal
+extract_llm_content <- function(result) {
+  if (length(result$choices) == 0) {
+    stop("LLM returned no choices", call. = FALSE)
+  }
+  choice <- result$choices[[1]]
+  text <- choice$message$content
+  if (!is.character(text) || length(text) != 1 || is.na(text) ||
+      !nzchar(text)) {
+    stop("LLM returned empty content (finish_reason: ",
+         choice$finish_reason %||% "unknown", ")", call. = FALSE)
+  }
+  text
+}
+
 #' Call the OpenAI API
 #'
 #' @param system_prompt System prompt string.
 #' @param user_prompt User prompt string.
-#' @param model OpenAI model name (default: "gpt-4.1").
+#' @param model OpenAI model name (default: \code{llm_model_name("openai")}).
 #' @param temperature Sampling temperature (default: 0.3). Lower values
 #'   produce more deterministic, factual output; higher values are more
 #'   creative. 0.3 is a good balance for scientific report text.
@@ -46,8 +71,7 @@ call_openai <- function(system_prompt, user_prompt,
     httr2::req_perform()
 
   result <- httr2::resp_body_json(resp)
-  text <- result$choices[[1]]$message$content
-  strip_markdown(text)
+  strip_markdown(extract_llm_content(result))
 }
 
 #' Call the Gemini API (OpenAI-compatible endpoint)
@@ -117,8 +141,7 @@ call_gemini <- function(system_prompt, user_prompt,
   .llm_state$gemini_last_call <- Sys.time()
 
   result <- httr2::resp_body_json(resp)
-  text <- result$choices[[1]]$message$content
-  strip_markdown(text)
+  strip_markdown(extract_llm_content(result))
 }
 
 #' Call an LLM provider

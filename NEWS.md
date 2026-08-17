@@ -55,6 +55,10 @@
   inserted in the middle of full binomials ("Dinophysis* acuminata"), and
   custom classes with missing HAB/italic flags caused the literal word "NA"
   to be asterisked or italicised throughout the report.
+- Fix an LLM response without text content (e.g. a refusal or safety block)
+  aborting the whole report generation after all API calls completed; such
+  responses now fall back to the manual placeholder text like other LLM
+  errors.
 
 - Fix a crash ("could not find function `build_cruise_info`") when excluding
   a sample in the installed app: the helper is now exported so
