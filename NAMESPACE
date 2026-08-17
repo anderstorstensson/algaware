@@ -2,6 +2,7 @@
 
 export(aggregate_station_data)
 export(assign_phyto_groups)
+export(build_cruise_info)
 export(collect_ferrybox_data)
 export(compute_ctd_chl_avg)
 export(compute_lims_chl_avg)

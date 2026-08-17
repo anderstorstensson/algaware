@@ -252,6 +252,7 @@ resolve_classes <- function(config, taxa_lookup, classifications) {
 #' @param sample_times POSIXct vector of sample timestamps.
 #' @return Character string.
 #' @keywords internal
+#' @export
 build_cruise_info <- function(sample_times) {
   dates <- as.Date(sample_times)
   old_locale <- Sys.getlocale("LC_TIME")

@@ -1,5 +1,9 @@
 # algaware (development version)
 
+- Fix a crash ("could not find function `build_cruise_info`") when excluding
+  a sample in the installed app: the helper is now exported so
+  `inst/app/server.R` can call it.
+
 # algaware 0.2.0
 
 ## Minor improvements and fixes
