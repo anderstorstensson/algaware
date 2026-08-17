@@ -29,6 +29,9 @@
   station metadata combined with the previous cruise's classifications),
   which could later crash summary recomputation. Loaded state is now
   committed only after processing succeeds.
+- Define and export the `%||%` operator so the app works on R 4.1-4.3, where
+  base R does not provide it; previously the Maps tab and metadata fetching
+  failed there with `could not find function "%||%"`.
 
 - Fix a crash ("could not find function `build_cruise_info`") when excluding
   a sample in the installed app: the helper is now exported so

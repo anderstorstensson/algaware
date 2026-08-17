@@ -1,3 +1,18 @@
+#' Null coalescing operator
+#'
+#' Base R only ships \code{\%||\%} from 4.4.0, while this package supports
+#' R >= 4.1. It must also be exported (not just defined internally): the
+#' Shiny app in \code{inst/app/} resolves names through the attached
+#' namespace, so an internal definition would leave \code{server.R} without
+#' it on older R versions.
+#'
+#' @param x,y Any objects.
+#' @return \code{x} unless it is \code{NULL}, in which case \code{y}.
+#' @name null-coalesce
+#' @keywords internal
+#' @export
+`%||%` <- function(x, y) if (is.null(x)) y else x
+
 #' Get the configuration directory for algaware
 #'
 #' @return Path to the configuration directory
