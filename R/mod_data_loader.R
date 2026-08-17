@@ -370,7 +370,11 @@ mod_data_loader_server <- function(id, config, rv) {
             return()
           }
 
-          rv$matched_metadata <- matched
+          # Do NOT write `matched` into rv yet: everything below reads the
+          # local variable, and committing to rv before download/processing
+          # can fail would leave the app half-loaded (new cruise's metadata
+          # with the previous cruise's classifications). All rv writes happen
+          # together after processing succeeds.
           status(paste0("Matched ", nrow(matched), " bins to ",
                         length(unique(matched$STATION_NAME)), " stations."))
 

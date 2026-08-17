@@ -25,6 +25,10 @@
   offline fallback produced a differently shaped phytoplankton-group table
   than the online path. `assign_phyto_groups()` now returns a plain vector
   of group names aligned with its input.
+- Fix a failed cruise load leaving the app half-loaded (the new cruise's
+  station metadata combined with the previous cruise's classifications),
+  which could later crash summary recomputation. Loaded state is now
+  committed only after processing succeeds.
 
 - Fix a crash ("could not find function `build_cruise_info`") when excluding
   a sample in the installed app: the helper is now exported so
