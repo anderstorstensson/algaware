@@ -272,8 +272,12 @@ mod_validation_server <- function(id, rv, config) {
           "Move the selected images to a different class. ",
           "This only affects the current session (not stored in database)."
         )),
+        # selected = "" keeps the dropdown empty so the placeholder shows;
+        # without it Shiny preselects the first choice and a hasty "Relabel"
+        # click moves the images to a class the user never picked.
         shiny::selectizeInput(ns("relabel_selected_target"), "Target class",
                               choices = grouped,
+                              selected = "",
                               options = list(
                                 placeholder = "Type to search...",
                                 maxOptions = 500
@@ -348,8 +352,11 @@ mod_validation_server <- function(id, rv, config) {
           if (rv$current_region == "EAST") "Baltic Sea" else "West Coast",
           " to a different class."
         )),
+        # selected = "" keeps the dropdown empty so the placeholder shows
+        # (see relabel_selected_target above).
         shiny::selectizeInput(ns("relabel_target"), "Target class",
                               choices = grouped,
+                              selected = "",
                               options = list(
                                 placeholder = "Type to search...",
                                 maxOptions = 500
