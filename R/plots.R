@@ -196,10 +196,23 @@ create_image_count_map <- function(image_counts, legend_position = "right",
     as.expression(labs)
   }
 
+  # Normalise per sample and drop only the samples lacking a valid analysed
+  # volume. A single bad sample used to flip the *entire* map to raw image
+  # counts, which are not comparable across samples with different volumes.
+  # Raw counts remain the fallback only when no sample has a usable volume.
   plot_data <- image_counts
-  if ("ml_analyzed" %in% names(plot_data) &&
-      all(!is.na(plot_data$ml_analyzed)) &&
-      all(plot_data$ml_analyzed > 0)) {
+  valid_ml <- if ("ml_analyzed" %in% names(plot_data)) {
+    !is.na(plot_data$ml_analyzed) & plot_data$ml_analyzed > 0
+  } else {
+    rep(FALSE, nrow(plot_data))
+  }
+  if (any(valid_ml)) {
+    if (any(!valid_ml)) {
+      warning(sum(!valid_ml),
+              " sample(s) lack a valid analysed volume and are not shown ",
+              "in the image concentration map", call. = FALSE)
+      plot_data <- plot_data[valid_ml, , drop = FALSE]
+    }
     plot_data$images_per_liter <- plot_data$n_images /
       (plot_data$ml_analyzed / 1000)
     # Two-line label keeps the colorbar title within the legend column width

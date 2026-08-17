@@ -78,6 +78,9 @@
 - Fix closing one app session blanking the front-page mosaic thumbnails in
   all other open sessions of the same R process; the image resource path is
   now per session.
+- Fix a single sample without a valid analysed volume switching the whole
+  image concentration map from counts per litre to raw image counts; only
+  the affected samples are now dropped (with a warning).
 
 - Fix a crash ("could not find function `build_cruise_info`") when excluding
   a sample in the installed app: the helper is now exported so
