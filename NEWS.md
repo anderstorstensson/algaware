@@ -12,6 +12,11 @@
   correct annotations in the database).
 - Fix a crash (R session segfault) when building a mosaic from only one or
   two images, e.g. a front-page mosaic for a region with few taxa.
+- Fix the report post-processing silently corrupting every non-ASCII
+  character (µ, Å/Ä/Ö, –) in the generated Word document on hosts running a
+  non-UTF-8 locale (e.g. servers under a C/POSIX locale). The OOXML parts
+  are now read and written as raw bytes instead of through locale-dependent
+  text connections.
 
 - Fix a crash ("could not find function `build_cruise_info`") when excluding
   a sample in the installed app: the helper is now exported so
