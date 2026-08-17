@@ -88,6 +88,9 @@
   chlorophyll source: repeat casts with slightly different coordinates
   produced multiple chlorophyll rows per station, and the merge duplicated
   every taxon row of that station.
+- Fix duplicated "Image mosaics" headings and repeated "Mosaic 1." captions
+  when both regions had mosaics: the report now has a single section heading
+  and continuous mosaic numbering.
 
 - Fix a crash ("could not find function `build_cruise_info`") when excluding
   a sample in the installed app: the helper is now exported so

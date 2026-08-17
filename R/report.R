@@ -477,10 +477,15 @@ generate_report <- function(output_path, station_summary,
   }
 
   hab_species <- get_hab_species(taxa_lookup)
-  doc <- add_mosaic_section(doc, westcoast_mosaics, hab_species,
-                            "West Coast", cleanup, taxa_lookup)
-  doc <- add_mosaic_section(doc, baltic_mosaics, hab_species, "Baltic Sea",
-                            cleanup, taxa_lookup)
+  result <- add_mosaic_section(doc, westcoast_mosaics, hab_species,
+                               "West Coast", cleanup, taxa_lookup,
+                               mosaic_num = 1L, add_heading = TRUE)
+  doc <- result$doc
+  result <- add_mosaic_section(doc, baltic_mosaics, hab_species, "Baltic Sea",
+                               cleanup, taxa_lookup,
+                               mosaic_num = result$mosaic_num,
+                               add_heading = !result$heading_added)
+  doc <- result$doc
 
   page_footer <- officer::block_list(
     officer::fpar(

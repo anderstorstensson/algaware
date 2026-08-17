@@ -184,15 +184,27 @@ add_station_sections <- function(doc, station_summary,
 }
 
 #' Add mosaic section to the report
+#'
+#' The mosaic counter and the "Image mosaics" heading are threaded through
+#' the per-region calls (like the figure counter elsewhere) so the report
+#' gets one heading and a continuous "Mosaic N." numbering, instead of a
+#' duplicate heading-2 block and two figures both captioned "Mosaic 1.".
+#'
+#' @return A list with \code{doc}, the next \code{mosaic_num}, and
+#'   \code{heading_added} (whether this call emitted the section heading).
 #' @keywords internal
 add_mosaic_section <- function(doc, mosaics, hab_species, region_label,
-                               cleanup, taxa_lookup = NULL) {
-  if (length(mosaics) == 0) return(doc)
+                               cleanup, taxa_lookup = NULL,
+                               mosaic_num = 1L, add_heading = TRUE) {
+  if (length(mosaics) == 0) {
+    return(list(doc = doc, mosaic_num = mosaic_num, heading_added = FALSE))
+  }
 
   doc <- officer::body_add_break(doc)
-  doc <- officer::body_add_par(doc, "Image mosaics", style = "heading 2")
+  if (add_heading) {
+    doc <- officer::body_add_par(doc, "Image mosaics", style = "heading 2")
+  }
   doc <- officer::body_add_par(doc, region_label, style = "heading 3")
-  mosaic_num <- 1L
 
   for (taxon in names(mosaics)) {
     mosaic_file <- tempfile(fileext = ".png")
@@ -237,7 +249,7 @@ add_mosaic_section <- function(doc, mosaics, hab_species, region_label,
     mosaic_num <- mosaic_num + 1L
   }
 
-  doc
+  list(doc = doc, mosaic_num = mosaic_num, heading_added = add_heading)
 }
 
 #' Add CTD profile and time series figures to the report
