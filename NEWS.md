@@ -10,6 +10,8 @@
   saves each image under its actual class instead of stamping the currently
   displayed class onto the whole selection (which could silently overwrite
   correct annotations in the database).
+- Fix a crash (R session segfault) when building a mosaic from only one or
+  two images, e.g. a front-page mosaic for a region with few taxa.
 
 - Fix a crash ("could not find function `build_cruise_info`") when excluding
   a sample in the installed app: the helper is now exported so
