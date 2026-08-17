@@ -1,3 +1,5 @@
+# algaware (development version)
+
 # algaware 0.2.0
 
 ## Minor improvements and fixes
