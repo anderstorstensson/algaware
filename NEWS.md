@@ -59,6 +59,8 @@
   aborting the whole report generation after all API calls completed; such
   responses now fall back to the manual placeholder text like other LLM
   errors.
+- Fix the station description silently falling back to placeholder text when
+  a warning-level taxon had a missing cell count (missing sample volume).
 
 - Fix a crash ("could not find function `build_cruise_info`") when excluding
   a sample in the installed app: the helper is now exported so

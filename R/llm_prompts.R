@@ -239,7 +239,10 @@ format_station_data_for_prompt <- function(station_data, taxa_lookup = NULL,
     warn_flag <- ""
     if (row$display_name %in% names(warning_thresholds)) {
       thresh <- warning_thresholds[[row$display_name]]
-      if (!is.na(thresh) && row$counts_per_liter >= thresh) {
+      # counts_per_liter is NA when the sample volume is missing; without the
+      # guard the comparison errored and the station description was lost.
+      if (!is.na(thresh) && !is.na(row$counts_per_liter) &&
+          row$counts_per_liter >= thresh) {
         warn_flag <- sprintf(" [WARNING: %.0f cells/L, threshold %.0f cells/L]",
                              row$counts_per_liter, thresh)
       }
