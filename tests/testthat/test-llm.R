@@ -963,3 +963,47 @@ test_that("abbreviate_repeated_binomials spans paragraphs within a summary", {
     sep = "\n\n"
   ))
 })
+
+test_that("ensure_hab_asterisks does not asterisk a genus inside a binomial", {
+  # Regression: a HAB-flagged genus matched inside a full species name,
+  # producing "Dinophysis* acuminata" in the report text.
+  taxa <- data.frame(
+    name = "Dinophysis", italic = TRUE, HAB = TRUE,
+    stringsAsFactors = FALSE
+  )
+  text <- "Blooms of Dinophysis acuminata and Dinophysis spp. were seen."
+  result <- algaware:::ensure_hab_asterisks(text, taxa)
+  expect_false(grepl("Dinophysis\\* acuminata", result))
+  expect_true(grepl("Dinophysis spp\\.\\*", result))
+})
+
+test_that("ensure_hab_asterisks ignores NA HAB flags and NA names", {
+  # Regression: NA subscripts injected an NA row whose pattern asterisked
+  # the literal word "NA" anywhere in the text.
+  taxa <- data.frame(
+    name = c("Alexandrium", NA),
+    italic = c(TRUE, NA),
+    HAB = c(NA, TRUE),
+    stringsAsFactors = FALSE
+  )
+  text <- "Value NA and Alexandrium spp. were recorded."
+  result <- algaware:::ensure_hab_asterisks(text, taxa)
+  expect_false(grepl("NA\\*", result))
+})
+
+test_that("format_report_paragraph ignores NA italic flags", {
+  taxa <- data.frame(
+    name = c("Skeletonema marinoi", "custom_thing"),
+    italic = c(TRUE, NA),
+    HAB = c(FALSE, NA),
+    stringsAsFactors = FALSE
+  )
+  par <- algaware:::format_report_paragraph(
+    "NA values and Skeletonema marinoi were seen.", taxa
+  )
+  # The literal word "NA" must stay in a normal (non-italic) chunk
+  chunks <- vapply(par$chunks, function(ch) ch$value, character(1))
+  italics <- vapply(par$chunks, function(ch) isTRUE(ch$pr$italic), logical(1))
+  expect_false(any(italics & grepl("\\bNA\\b", chunks)))
+  expect_true(any(italics & chunks == "Skeletonema marinoi"))
+})

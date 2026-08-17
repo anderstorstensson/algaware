@@ -17,7 +17,12 @@ ensure_hab_asterisks <- function(text, taxa_lookup) {
   if (is.null(taxa_lookup) || nrow(taxa_lookup) == 0) return(text)
   if (!"HAB" %in% names(taxa_lookup)) return(text)
 
-  hab_rows <- taxa_lookup[taxa_lookup$HAB == TRUE & nzchar(taxa_lookup$name), ]
+  # which() drops NA comparisons: custom classes can carry HAB = NA or an NA
+  # name, and NA subscripts would inject an NA row whose name becomes the
+  # literal pattern "NA", asterisking the word "NA" anywhere in the text.
+  hab_rows <- taxa_lookup[which(taxa_lookup$HAB == TRUE &
+                                  !is.na(taxa_lookup$name) &
+                                  nzchar(taxa_lookup$name)), ]
   if (nrow(hab_rows) == 0) return(text)
 
   hab_names <- unique(hab_rows$name)
@@ -47,8 +52,11 @@ ensure_hab_asterisks <- function(text, taxa_lookup) {
       text <- gsub(paste0("(", escaped, "\\s+spp?\\.)(?!\\*)"),
                    "\\1*", text, perl = TRUE)
       # Pass 3: Add * after a bare genus that is not followed by spp. / sp.
-      #         and not already marked.
-      text <- gsub(paste0("(", escaped, ")(?!\\s+spp?\\.)(?!\\*)"),
+      #         and not already marked. Also skip a genus followed by any
+      #         lowercase word: that is a full binomial ("Dinophysis
+      #         acuminata"), and the asterisk would land in the middle of
+      #         the species name ("Dinophysis* acuminata").
+      text <- gsub(paste0("(", escaped, ")(?!\\s+spp?\\.)(?!\\s+[a-z])(?!\\*)"),
                    "\\1*", text, perl = TRUE)
     } else {
       pattern <- paste0("(", escaped, ")(?!\\*)")
@@ -161,9 +169,13 @@ format_report_paragraph <- function(text, taxa_lookup = NULL) {
     return(officer::fpar(officer::ftext(text, normal_prop)))
   }
 
-  # Build list of names to match: full names + abbreviated forms
-  italic_names <- taxa_lookup$name[taxa_lookup$italic == TRUE &
-                                     nzchar(taxa_lookup$name)]
+  # Build list of names to match: full names + abbreviated forms.
+  # which() drops NA comparisons (custom classes can carry italic = NA),
+  # which would otherwise inject NA into the names and italicise the literal
+  # word "NA" throughout the report text.
+  italic_names <- taxa_lookup$name[which(taxa_lookup$italic == TRUE &
+                                           !is.na(taxa_lookup$name) &
+                                           nzchar(taxa_lookup$name))]
   italic_names <- unique(italic_names)
 
   # Generate abbreviated forms for species (two-word names)
