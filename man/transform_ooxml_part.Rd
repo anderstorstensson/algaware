@@ -15,7 +15,12 @@ transform_ooxml_part(path, fun)
 Invisibly TRUE if the file changed, FALSE otherwise.
 }
 \description{
-OOXML is UTF-8; read and write parts as UTF-8 explicitly so station names
-with Å/Ä/Ö survive the round-trip on non-UTF-8 locales.
+OOXML is UTF-8; read and write the part as raw bytes and only mark the
+string as UTF-8 so the content never passes through the session's native
+locale. Text connections (\code{file(path, encoding = "UTF-8")}) re-encode
+to/from the native locale on read and write, which mangled every non-ASCII
+character (Å/Ä/Ö, µ, –) into literal escape sequences on non-UTF-8 hosts
+(e.g. servers running under a C/POSIX locale) — silently, since the .docx
+still opened fine in Word.
 }
 \keyword{internal}

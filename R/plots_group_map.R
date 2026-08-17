@@ -41,13 +41,21 @@ create_group_map <- function(station_summary, phyto_groups, r_lat = 0.28) {
   )
 
   # Merge group assignments; unmatched taxa fall into "Other".
+  # `phyto_group` is the flat column callers now build (assign_phyto_groups
+  # returns a plain vector); `phyto_group.plankton_group` is the legacy nested
+  # shape from when the SHARK4R data frame was embedded directly.
+  if (!"phyto_group" %in% names(phyto_groups) &&
+      "phyto_group.plankton_group" %in% names(phyto_groups)) {
+    names(phyto_groups)[
+      names(phyto_groups) == "phyto_group.plankton_group"
+    ] <- "phyto_group"
+  }
   merged <- merge(
     station_summary,
-    phyto_groups[, c("name", "AphiaID", "phyto_group.plankton_group")],
+    phyto_groups[, c("name", "AphiaID", "phyto_group")],
     by    = c("name", "AphiaID"),
     all.x = TRUE
   )
-  names(merged)[names(merged) == "phyto_group.plankton_group"] <- "phyto_group"
   merged$phyto_group[is.na(merged$phyto_group)] <- "Other"
 
   # Aggregate carbon biomass per station + group into the long format

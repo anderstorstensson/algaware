@@ -17,6 +17,14 @@
   non-UTF-8 locale (e.g. servers under a C/POSIX locale). The OOXML parts
   are now read and written as raw bytes instead of through locale-dependent
   text connections.
+- The "Relabel Selected" and "Relabel Class" dialogs no longer open with the
+  first class preselected; confirming without picking a target previously
+  relabelled images to an arbitrary class with no undo.
+- Fix the Maps tab and report generation crashing with "undefined columns
+  selected" when the WoRMS lookup is unavailable (offline use): the
+  offline fallback produced a differently shaped phytoplankton-group table
+  than the online path. `assign_phyto_groups()` now returns a plain vector
+  of group names aligned with its input.
 
 - Fix a crash ("could not find function `build_cruise_info`") when excluding
   a sample in the installed app: the helper is now exported so

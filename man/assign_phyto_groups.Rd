@@ -14,7 +14,12 @@ assign_phyto_groups(scientific_names, aphia_ids = NULL, verbose = FALSE)
 \item{verbose}{Passed to \code{SHARK4R::assign_phytoplankton_group()}.}
 }
 \value{
-Return value of \code{SHARK4R::assign_phytoplankton_group()}.
+Character vector of group names, one per element of
+\code{scientific_names}; unresolved taxa are \code{"Other"}. (The raw
+\code{SHARK4R::assign_phytoplankton_group()} data frame is not returned:
+its \code{left_join} shape leaked into callers as nested
+\code{phyto_group.*} columns and could drop or duplicate rows, so it is
+realigned to the input here.)
 }
 \description{
 Thin wrapper around \code{SHARK4R::assign_phytoplankton_group()} that
