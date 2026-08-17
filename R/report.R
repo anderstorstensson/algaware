@@ -397,21 +397,25 @@ generate_report <- function(output_path, station_summary,
     "FerryBox chlorophyll fluorescence"
   )
 
-  doc <- add_centered_plot(doc, chl_map_plot, cleanup,
-    width = 7, height = 4, display_width = 5.8, display_height = 3.2)
-  doc <- officer::body_add_fpar(doc, officer::fpar(
-    officer::ftext(
-      paste0("Figure ", fig_num,
-             ". ", chl_caption_source, " at AlgAware stations",
-             if (nzchar(month_year)) {
-               paste0(" during the ", month_year, " cruise.")
-             } else {
-               "."
-             }),
-      officer::fp_text(font.size = 10, font.family = "Adobe Garamond Pro")
-    ), fp_p = left_pp
-  ))
-  fig_num <- fig_num + 1L
+  # chl_map_plot can be NULL when no station has usable coordinates
+  # (create_biomass_maps() returns NULL); skip the figure rather than abort.
+  if (!is.null(chl_map_plot)) {
+    doc <- add_centered_plot(doc, chl_map_plot, cleanup,
+      width = 7, height = 4, display_width = 5.8, display_height = 3.2)
+    doc <- officer::body_add_fpar(doc, officer::fpar(
+      officer::ftext(
+        paste0("Figure ", fig_num,
+               ". ", chl_caption_source, " at AlgAware stations",
+               if (nzchar(month_year)) {
+                 paste0(" during the ", month_year, " cruise.")
+               } else {
+                 "."
+               }),
+        officer::fp_text(font.size = 10, font.family = "Adobe Garamond Pro")
+      ), fp_p = left_pp
+    ))
+    fig_num <- fig_num + 1L
+  }
 
   sample_counts <- build_sample_counts(station_summary)
 

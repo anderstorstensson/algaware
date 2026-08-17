@@ -39,6 +39,12 @@
 - Fix a failed report generation leaving the previous report downloadable
   and labelled "Report ready for download"; the download state is now
   invalidated when a new generation starts.
+- Fix the biomass and phytoplankton-group maps silently discarding whole
+  rows when a single value was missing: a station visit with a missing
+  sample volume under-reported carbon biomass and skewed pie-chart group
+  proportions, and a station missing from the SHARK register vanished
+  without warning. Missing values are now tolerated per column and stations
+  without coordinates are reported.
 
 - Fix a crash ("could not find function `build_cruise_info`") when excluding
   a sample in the installed app: the helper is now exported so
