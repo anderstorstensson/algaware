@@ -146,3 +146,34 @@ test_that("create_chl_timeseries returns ggplot with both stats and lims", {
                                          show_x_axis = FALSE)
   expect_s3_class(p, "ggplot")
 })
+
+test_that("deduplicate_casts keeps casts whose sample_date is NA", {
+  # Regression: split() drops NA groups, so casts without a parsable date
+  # were all discarded and the station silently vanished.
+  ctd <- data.frame(
+    file_path = rep(c("a.cnv", "b.cnv"), each = 2),
+    pressure_dbar = c(1, 30, 1, 20),
+    sample_date = as.Date(NA),
+    stringsAsFactors = FALSE
+  )
+  result <- algaware:::deduplicate_casts(ctd)
+  # Each NA-date file is its own group, so both files survive
+  expect_setequal(unique(result$file_path), c("a.cnv", "b.cnv"))
+
+  # Mixed NA and real dates: real-date files still deduplicate per date
+  ctd$sample_date <- as.Date(c(NA, NA, "2026-08-01", "2026-08-01"))
+  result <- algaware:::deduplicate_casts(ctd)
+  expect_setequal(unique(result$file_path), c("a.cnv", "b.cnv"))
+})
+
+test_that("deduplicate_casts tolerates all-NA pressure for a file", {
+  ctd <- data.frame(
+    file_path = rep(c("a.cnv", "b.cnv"), each = 2),
+    pressure_dbar = c(NA, NA, 1, 20),
+    sample_date = as.Date("2026-08-01"),
+    stringsAsFactors = FALSE
+  )
+  expect_no_warning(result <- algaware:::deduplicate_casts(ctd))
+  # The file with real depths wins the per-date dedup
+  expect_equal(unique(result$file_path), "b.cnv")
+})

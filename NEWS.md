@@ -45,6 +45,9 @@
   proportions, and a station missing from the SHARK register vanished
   without warning. Missing values are now tolerated per column and stations
   without coordinates are reported.
+- Fix CTD casts without a parsable timestamp being silently discarded during
+  cast deduplication, which removed the whole station from the CTD tab and
+  the report.
 
 - Fix a crash ("could not find function `build_cruise_info`") when excluding
   a sample in the installed app: the helper is now exported so
