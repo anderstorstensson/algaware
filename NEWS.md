@@ -91,6 +91,12 @@
 - Fix duplicated "Image mosaics" headings and repeated "Mosaic 1." captions
   when both regions had mosaics: the report now has a single section heading
   and continuous mosaic numbering.
+- Fix the unclassified-image percentage sometimes being attached to the
+  wrong station visit in the report: visit numbering is now derived once
+  from the sample metadata instead of separately from two different row
+  sets that could disagree when a station was visited twice.
+- Fix a sample with a missing timestamp crashing the whole station
+  aggregation; it is now grouped with the current visit.
 
 - Fix a crash ("could not find function `build_cruise_info`") when excluding
   a sample in the installed app: the helper is now exported so

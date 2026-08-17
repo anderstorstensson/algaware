@@ -139,7 +139,9 @@ assign_station_visits <- function(metadata, max_gap_hours = 12) {
     if (length(idx) > 1) {
       for (i in 2:length(idx)) {
         gap_hours <- as.numeric(difftime(times[i], times[i - 1], units = "hours"))
-        if (gap_hours > max_gap_hours) {
+        # A missing sample_time yields an NA gap; treat the bin as part of
+        # the current visit instead of crashing the whole aggregation.
+        if (!is.na(gap_hours) && gap_hours > max_gap_hours) {
           visit_num <- visit_num + 1L
         }
         metadata$visit_id[idx[i]] <- paste0(stn, "_visit", visit_num)
