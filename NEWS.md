@@ -5,6 +5,11 @@
   data frame, crashing data loading and the Settings tab with "$ operator is
   invalid for atomic vectors". Settings files mangled by the old code are
   repaired automatically on load.
+- Fix stale gallery selections corrupting stored annotations: selections now
+  clear when navigating to another class or region, and "Store Annotations"
+  saves each image under its actual class instead of stamping the currently
+  displayed class onto the whole selection (which could silently overwrite
+  correct annotations in the database).
 
 - Fix a crash ("could not find function `build_cruise_info`") when excluding
   a sample in the installed app: the helper is now exported so

@@ -181,15 +181,39 @@ mod_validation_server <- function(id, rv, config) {
       ctx <- get_region_context(rv)
       if (is.null(ctx$current_class)) return()
 
-      # Parse selected image IDs back to sample_name + roi_number
+      # Parse selected image IDs back to sample_name + roi_number, and take
+      # each image's class from the working classification table rather than
+      # from the class currently displayed in the gallery. Stamping the
+      # displayed class onto the whole selection could silently overwrite
+      # correct database annotations with the wrong class whenever the
+      # selection contained images from another class.
       parsed <- parse_image_ids(rv$selected_images)
-      parsed$class_name <- ctx$current_class
-
-      # Validate class against class list before saving
-      if (length(rv$class_list) > 0 &&
-          !ctx$current_class %in% rv$class_list) {
+      cls_keys <- paste0(rv$classifications$sample_name, "_",
+                         rv$classifications$roi_number)
+      idx <- match(paste0(parsed$sample_name, "_", parsed$roi_number),
+                   cls_keys)
+      parsed$class_name <- rv$classifications$class_name[idx]
+      parsed <- parsed[!is.na(parsed$class_name), , drop = FALSE]
+      if (nrow(parsed) == 0) {
         shiny::showNotification(
-          paste0("'", ctx$current_class, "' is not in the database class ",
+          "None of the selected images are in the loaded classifications.",
+          type = "warning"
+        )
+        rv$selected_images <- character(0)
+        return()
+      }
+
+      # Validate classes against class list before saving
+      selected_classes <- unique(parsed$class_name)
+      invalid_classes <- if (length(rv$class_list) > 0) {
+        setdiff(selected_classes, rv$class_list)
+      } else {
+        character(0)
+      }
+      if (length(invalid_classes) > 0) {
+        shiny::showNotification(
+          paste0("'", paste(invalid_classes, collapse = "', '"),
+                 "' is not in the database class ",
                  "list. Only database classes can be saved as annotations. ",
                  "This class may be from the taxa lookup or a custom class."),
           type = "error", duration = 8
@@ -213,9 +237,13 @@ mod_validation_server <- function(id, rv, config) {
       )
 
       if (success) {
+        class_label <- if (length(selected_classes) == 1) {
+          selected_classes
+        } else {
+          paste0(length(selected_classes), " classes")
+        }
         shiny::showNotification(
-          paste0("Saved ", nrow(parsed), " annotations for ",
-                 ctx$current_class),
+          paste0("Saved ", nrow(parsed), " annotations for ", class_label),
           type = "message"
         )
         rv$selected_images <- character(0)

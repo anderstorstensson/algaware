@@ -320,6 +320,7 @@ mod_gallery_server <- function(id, rv, config) {
       new_idx <- match(sel, classes)
       if (!is.na(new_idx) && new_idx != rv$current_class_idx) {
         rv$current_class_idx <- new_idx
+        rv$selected_images <- character(0)
         page(1L)
       }
     })
@@ -394,9 +395,16 @@ mod_gallery_server <- function(id, rv, config) {
     })
 
     # ---- Class and page navigation ----
+    # Navigating to another class or region clears the selection. Selections
+    # used to survive navigation invisibly (the highlights are wiped by the
+    # re-render), so a later "Store Annotations" or "Relabel Selected" would
+    # silently include images picked in a previously viewed class. Page
+    # navigation within a class intentionally keeps the selection (the
+    # "Select Page" workflow spans pages).
     shiny::observeEvent(input$prev_class, {
       if (rv$current_class_idx > 1) {
         rv$current_class_idx <- rv$current_class_idx - 1L
+        rv$selected_images <- character(0)
         page(1L)
       }
     })
@@ -405,6 +413,7 @@ mod_gallery_server <- function(id, rv, config) {
       classes <- region_classes()
       if (rv$current_class_idx < length(classes)) {
         rv$current_class_idx <- rv$current_class_idx + 1L
+        rv$selected_images <- character(0)
         page(1L)
       }
     })
@@ -412,6 +421,7 @@ mod_gallery_server <- function(id, rv, config) {
     shiny::observeEvent(input$region_toggle, {
       rv$current_class_idx <- 1L
       rv$current_region <- input$region_toggle
+      rv$selected_images <- character(0)
       page(1L)
     })
 
