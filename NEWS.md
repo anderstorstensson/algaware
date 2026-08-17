@@ -81,6 +81,9 @@
 - Fix a single sample without a valid analysed volume switching the whole
   image concentration map from counts per litre to raw image counts; only
   the affected samples are now dropped (with a warning).
+- Generated reports no longer accumulate in the server's temp directory, and
+  two sessions generating a report in the same second can no longer
+  overwrite each other's file.
 
 - Fix a crash ("could not find function `build_cruise_info`") when excluding
   a sample in the installed app: the helper is now exported so
