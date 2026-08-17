@@ -1,5 +1,11 @@
 # algaware (development version)
 
+- Fix extra stations added in Settings permanently breaking the app on the
+  next restart: the settings loader turned the saved station list into a
+  data frame, crashing data loading and the Settings tab with "$ operator is
+  invalid for atomic vectors". Settings files mangled by the old code are
+  repaired automatically on load.
+
 - Fix a crash ("could not find function `build_cruise_info`") when excluding
   a sample in the installed app: the helper is now exported so
   `inst/app/server.R` can call it.
