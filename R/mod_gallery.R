@@ -431,6 +431,18 @@ mod_gallery_server <- function(id, rv, config) {
     # a message to R (input$toggle_image), and R updates rv$selected_images.
     # The visual highlight (CSS class .selected) is toggled client-side in JS
     # for instant feedback without a server round-trip.
+    #
+    # rv$selected_images is the single source of truth. Every change to it --
+    # including clears done by mod_validation after relabel/store-annotations --
+    # is mirrored to the browser below, and gallery.js re-applies the mirrored
+    # state after each gallery re-render (renderUI replaces the DOM, which
+    # would otherwise wipe the .selected highlights while the images remained
+    # selected server-side).
+    shiny::observeEvent(rv$selected_images, {
+      session$sendCustomMessage("syncSelection",
+                                list(selected = as.list(rv$selected_images)))
+    }, ignoreNULL = FALSE)
+
     shiny::observeEvent(input$toggle_image, {
       img_id <- input$toggle_image$img
       if (img_id %in% rv$selected_images) {
@@ -446,22 +458,18 @@ mod_gallery_server <- function(id, rv, config) {
       rv$selected_images <- union(rv$selected_images, new_imgs)
     })
 
-    # Select all images on current page, then sync visual state to browser.
-    # syncSelection is a JS handler (gallery.js) that adds/removes the
-    # .selected CSS class on image cards to match the R-side state.
+    # Select all images on current page. The browser highlight follows via
+    # the rv$selected_images -> syncSelection mirror above.
     shiny::observeEvent(input$select_page, {
       imgs <- tryCatch(paginated(), error = function(e) NULL)
       if (is.null(imgs) || nrow(imgs) == 0) return()
       img_ids <- paste0(imgs$sample_name, "_", imgs$roi_number)
       rv$selected_images <- union(rv$selected_images, img_ids)
-      session$sendCustomMessage("syncSelection",
-                                list(selected = rv$selected_images))
     })
 
-    # Clear all selections and sync to browser
+    # Clear all selections
     shiny::observeEvent(input$deselect, {
       rv$selected_images <- character(0)
-      session$sendCustomMessage("syncSelection", list(selected = list()))
     })
 
     # ---- Measure tool (ruler overlay, handled in gallery.js) ----

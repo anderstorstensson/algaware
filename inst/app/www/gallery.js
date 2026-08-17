@@ -166,6 +166,19 @@ $(document).ready(function() {
   // Selection (client-side visual state management)
   // ============================================================================
 
+  // Mirror of the server-side selection (rv$selected_images). The server
+  // pushes every change here via syncSelection; clicks and drag-selects also
+  // update it locally so highlights survive a re-render that happens before
+  // the server echo arrives.
+  var selectedIds = [];
+
+  function applySelection() {
+    $('.image-card').each(function() {
+      $(this).toggleClass('selected',
+                          selectedIds.indexOf($(this).data('img')) >= 0);
+    });
+  }
+
   // Single-click selection on image cards (toggle .selected class in JS)
   $(document).on('click', '.image-card', function(e) {
     if (measureMode) return;
@@ -175,22 +188,32 @@ $(document).ready(function() {
     }
     $(this).toggleClass('selected');
     var imgId = $(this).data('img');
+    if (selectedIds.indexOf(imgId) >= 0) {
+      selectedIds = selectedIds.filter(function(id) { return id !== imgId; });
+    } else {
+      selectedIds = selectedIds.concat([imgId]);
+    }
     Shiny.setInputValue('gallery-toggle_image',
       {img: imgId, time: new Date().getTime()},
       {priority: 'event'});
   });
 
-  // Sync selection state from server (for select-page, deselect-all)
+  // Sync selection state from server: fires on every rv$selected_images
+  // change (clicks echoed back, select-page, deselect-all, and clears done
+  // by the validation module after relabel/store-annotations).
   Shiny.addCustomMessageHandler('syncSelection', function(msg) {
-    var selected = msg.selected || [];
-    $('.image-card').each(function() {
-      var imgId = $(this).data('img');
-      if (selected.indexOf(imgId) >= 0) {
-        $(this).addClass('selected');
-      } else {
-        $(this).removeClass('selected');
-      }
-    });
+    selectedIds = msg.selected || [];
+    applySelection();
+  });
+
+  // Re-apply highlights after the gallery re-renders: renderUI replaces the
+  // DOM, wiping .selected classes even though the images are still selected
+  // server-side. shiny:value fires just before the output is swapped in, so
+  // defer with setTimeout until the new DOM exists.
+  $(document).on('shiny:value', function(e) {
+    if (e.name === 'gallery-image_gallery') {
+      setTimeout(applySelection, 0);
+    }
   });
 
   // Drag-select
@@ -257,6 +280,9 @@ $(document).ready(function() {
       });
 
       if (selected.length > 0) {
+        selectedIds = selectedIds.concat(selected.filter(function(id) {
+          return selectedIds.indexOf(id) < 0;
+        }));
         Shiny.setInputValue('gallery-drag_select',
           {images: selected, time: new Date().getTime()},
           {priority: 'event'});

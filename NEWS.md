@@ -3,6 +3,12 @@
 - Fix a crash ("could not find function `build_cruise_info`") when excluding
   a sample in the installed app: the helper is now exported so
   `inst/app/server.R` can call it.
+- Fix gallery selection state getting out of sync between the browser and the
+  server. Previously the highlights could show images as deselected while
+  they were still selected server-side (or vice versa), so a later relabel or
+  store-annotations action could silently include images from an earlier
+  selection. The server-side selection is now mirrored to the browser on
+  every change and re-applied after each gallery re-render.
 
 # algaware 0.2.0
 
