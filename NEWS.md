@@ -32,6 +32,10 @@
 - Define and export the `%||%` operator so the app works on R 4.1-4.3, where
   base R does not provide it; previously the Maps tab and metadata fetching
   failed there with `could not find function "%||%"`.
+- Fix a failed summary recomputation (e.g. a missing feature file after
+  excluding a sample) permanently leaving the summary tables, heatmaps and
+  maps describing the previous sample set. The failure is now reported as a
+  notification and recomputation retries on the next tab switch.
 
 - Fix a crash ("could not find function `build_cruise_info`") when excluding
   a sample in the installed app: the helper is now exported so
