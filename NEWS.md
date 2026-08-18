@@ -105,6 +105,10 @@
   present, and a failed download is reported in the progress status instead
   of "Raw data downloaded". Missing .hdr files previously made ml_analyzed
   unavailable, silently inflating per-litre concentrations.
+- Move `yaml` from Suggests to Imports: it is required unconditionally for
+  phytoplankton-group assignment, and installations without it silently
+  produced reports with no group classification. A failed group assignment
+  during report generation now emits a warning instead of being swallowed.
 
 - Fix a crash ("could not find function `build_cruise_info`") when excluding
   a sample in the installed app: the helper is now exported so

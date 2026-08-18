@@ -38,7 +38,8 @@ Imports:
     rectpacker (>= 1.0.0),
     httr2,
     cmocean,
-    zip
+    zip,
+    yaml
 Suggests:
     knitr (>= 1.49),
     mockery,
@@ -48,8 +49,7 @@ Suggests:
     rnaturalearthdata,
     spelling,
     testthat (>= 3.0.0),
-    withr,
-    yaml
+    withr
 VignetteBuilder: knitr
 Config/testthat/edition: 3
 Language: en-GB

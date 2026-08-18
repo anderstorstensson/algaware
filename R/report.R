@@ -144,7 +144,13 @@ generate_report <- function(output_path, station_summary,
           scientific_names = taxa$name,
           aphia_ids        = taxa$AphiaID
         ),
-        error = function(e) NULL
+        error = function(e) {
+          # Surface the reason: silently collapsing to NULL produced a
+          # report without any phytoplankton-group content and no clue why.
+          warning("Phytoplankton group assignment failed: ",
+                  conditionMessage(e), call. = FALSE)
+          NULL
+        }
       )
       if (!is.null(groups)) {
         phyto_groups <- data.frame(
