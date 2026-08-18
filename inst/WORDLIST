@@ -12,6 +12,7 @@ ClassiPyR
 ClassiPyR's
 Cnv
 Cryptophytes
+DDL
 DEPH
 DT
 Dinophysis
@@ -31,6 +32,7 @@ Magick
 Mesodinium
 Niskin
 Nodularia
+OOXML
 OPENAI
 ORCID
 OpenAI
@@ -65,13 +67,17 @@ cnv
 color
 com
 cruise's
+csv
 dbar
 dd
 deduplicated
+deduplication
+dialogs
 diarienummer
 downcasts
 dropdown
 etc
+fallbacks
 ferrybox
 frontpage
 frustules
@@ -91,14 +97,17 @@ llm
 magick
 misclassifications
 optgroups
+parsable
 pct
 pid
 pkgdown
 rdocx
+recomputation
 rectpacker
 relabellings
 roi
 rv
+segfault
 selectize
 sflag
 sp
@@ -110,6 +119,7 @@ statn
 std
 taxon's
 tibble
+tryCatch
 ug
 unclassification
 unclassifications
@@ -117,6 +127,7 @@ unclassify
 unclassifying
 utv
 yyyy
+µ
 µg
 Ä
 Å

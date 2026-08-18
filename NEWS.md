@@ -1,5 +1,7 @@
 # algaware (development version)
 
+## Minor improvements and fixes
+
 - Fix extra stations added in Settings permanently breaking the app on the
   next restart: the settings loader turned the saved station list into a
   data frame, crashing data loading and the Settings tab with "$ operator is
@@ -119,7 +121,6 @@
   annotations / auto-generated class list, with a warning). All database
   connections now set a 5-second busy timeout so brief write locks from
   ClassiPyR wait instead of failing immediately.
-
 - Fix a crash ("could not find function `build_cruise_info`") when excluding
   a sample in the installed app: the helper is now exported so
   `inst/app/server.R` can call it.
