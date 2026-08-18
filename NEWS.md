@@ -97,6 +97,14 @@
   sets that could disagree when a station was visited twice.
 - Fix a sample with a missing timestamp crashing the whole station
   aggregation; it is now grouped with the current visit.
+- Fix feature files being re-downloaded on every reload: the cached-file
+  check compared the "_features.csv" file names against bare sample IDs and
+  never matched.
+- Fix interrupted raw-data downloads never being retried: a sample now
+  counts as downloaded only when all three files (.roi, .adc, .hdr) are
+  present, and a failed download is reported in the progress status instead
+  of "Raw data downloaded". Missing .hdr files previously made ml_analyzed
+  unavailable, silently inflating per-litre concentrations.
 
 - Fix a crash ("could not find function `build_cruise_info`") when excluding
   a sample in the installed app: the helper is now exported so

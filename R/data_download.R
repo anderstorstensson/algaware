@@ -181,10 +181,18 @@ download_raw_data <- function(dashboard_url, sample_ids, dest_dir,
   validate_sample_ids(sample_ids)
   dir.create(dest_dir, recursive = TRUE, showWarnings = FALSE)
 
-  # Check which samples already exist
-  existing <- tools::file_path_sans_ext(
-    list.files(dest_dir, pattern = "\\.roi$", recursive = TRUE)
-  )
+  # Check which samples already exist. A sample counts as downloaded only
+  # when all three files (.roi, .adc, .hdr) are present: an interrupted
+  # download could leave .roi without .hdr, and judging by .roi alone never
+  # retried, leaving ml_analyzed unavailable and silently inflating the
+  # per-litre concentrations for that visit.
+  files_sans_ext <- function(ext) {
+    sub(paste0("\\.", ext, "$"), "",
+        basename(list.files(dest_dir, pattern = paste0("\\.", ext, "$"),
+                            recursive = TRUE)))
+  }
+  existing <- Reduce(intersect,
+                     lapply(c("roi", "adc", "hdr"), files_sans_ext))
   needed <- setdiff(sample_ids, existing)
 
   if (length(needed) == 0) {
@@ -199,21 +207,24 @@ download_raw_data <- function(dashboard_url, sample_ids, dest_dir,
     progress_callback(0, length(needed), "Downloading raw data...")
   }
 
-  tryCatch(
+  ok <- tryCatch({
     iRfcb::ifcb_download_dashboard_data(
       dashboard_url = dashboard_url,
       samples = needed,
       file_types = c("roi", "adc", "hdr"),
       dest_dir = dest_dir,
       quiet = TRUE
-    ),
-    error = function(e) {
-      warning("Failed to download raw data: ", e$message, call. = FALSE)
-    }
-  )
+    )
+    TRUE
+  }, error = function(e) {
+    warning("Failed to download raw data: ", e$message, call. = FALSE)
+    FALSE
+  })
 
   if (!is.null(progress_callback)) {
-    progress_callback(length(needed), length(needed), "Raw data downloaded")
+    progress_callback(length(needed), length(needed),
+                      if (ok) "Raw data downloaded"
+                      else "Raw data download failed (see warnings)")
   }
 
   invisible(NULL)
@@ -233,9 +244,15 @@ download_features <- function(dashboard_url, sample_ids, dest_dir,
   validate_sample_ids(sample_ids)
   dir.create(dest_dir, recursive = TRUE, showWarnings = FALSE)
 
-  existing <- tools::file_path_sans_ext(
-    list.files(dest_dir, pattern = "\\.csv$", recursive = TRUE)
-  )
+  # Feature files are written as <pid>_features.csv (or <pid>_fea_vN.csv),
+  # so the "_features"/"_fea_vN" suffix must be stripped before comparing to
+  # the bare sample IDs; comparing on the full basename never matched, and
+  # every reload re-downloaded all feature files.
+  existing <- unique(sub("_(features|fea)(_v\\w+)?$", "",
+                         tools::file_path_sans_ext(basename(
+                           list.files(dest_dir, pattern = "\\.csv$",
+                                      recursive = TRUE)
+                         ))))
   needed <- setdiff(sample_ids, existing)
 
   if (length(needed) == 0) {
