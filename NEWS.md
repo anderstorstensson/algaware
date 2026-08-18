@@ -109,6 +109,11 @@
   phytoplankton-group assignment, and installations without it silently
   produced reports with no group classification. A failed group assignment
   during report generation now emits a warning instead of being swallowed.
+- Fix LLM prompt assembly for stations with missing sample volumes: an
+  all-NA station no longer loses its description to a "no rows to
+  aggregate" error, and missing counts/biovolume values are now spelled out
+  as "not available" in the prompt instead of a literal "NA", which gave the
+  model no signal that the value was missing.
 
 - Fix a crash ("could not find function `build_cruise_info`") when excluding
   a sample in the installed app: the helper is now exported so
