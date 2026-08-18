@@ -14,6 +14,9 @@
   only R's "Error in <call>: " prefix is stripped, instead of everything up
   to the last colon (which reduced e.g. a download error to "'404 Not
   Found'" without the URL).
+- Fix dead class-navigation arrows after "Unclassify Selected" or
+  "Unclassify Class" emptied the region's last class: the class index is
+  now clamped to the shrunken class list, as "Relabel Class" already did.
 - Fix extra stations added in Settings permanently breaking the app on the
   next restart: the settings loader turned the saved station list into a
   data frame, crashing data loading and the Settings tab with "$ operator is

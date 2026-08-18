@@ -140,6 +140,17 @@ mod_validation_server <- function(id, rv, config) {
     # selection. Returns the number of images changed (0 if none matched, in
     # which case the selection is still cleared). Callers handle their own
     # notifications since the wording differs.
+    # Keep rv$current_class_idx within the region's (possibly shrunken)
+    # class list after an action that can empty classes -- the same clamp
+    # confirm_relabel applies inline. Without it, emptying the last class of
+    # a region left the index past the end, showing "Class N of N" with dead
+    # navigation arrows for the first click(s).
+    clamp_class_index <- function() {
+      ctx <- get_region_context(rv)
+      rv$current_class_idx <- max(1L, min(rv$current_class_idx,
+                                          length(ctx$classes)))
+    }
+
     relabel_selected_images <- function(target) {
       parsed <- parse_image_ids(rv$selected_images)
 
@@ -170,6 +181,7 @@ mod_validation_server <- function(id, rv, config) {
                                   updated$roi_number[mask], target)
       rv$selected_images <- character(0)
       rv$summaries_stale <- TRUE
+      clamp_class_index()
 
       n_changed
     }
@@ -461,6 +473,7 @@ mod_validation_server <- function(id, rv, config) {
 
       rv$invalidated_classes <- unique(c(rv$invalidated_classes,
                                          ctx$current_class))
+      clamp_class_index()
 
       shiny::removeModal()
       shiny::showNotification(
