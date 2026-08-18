@@ -25,7 +25,7 @@ call_openai(
 
 - model:
 
-  OpenAI model name (default: "gpt-4.1").
+  OpenAI model name (default: `llm_model_name("openai")`).
 
 - temperature:
 

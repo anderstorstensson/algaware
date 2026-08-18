@@ -1,5 +1,161 @@
 # Changelog
 
+## algaware (development version)
+
+### Minor improvements and fixes
+
+- Fix the Samples table opening sorted by ROI file size instead of
+  sample time (off-by-one column index), which scrambled the
+  cruise-track order.
+- The red-asterisk HAB legend in the report introduction is now printed
+  only when a HAB-flagged taxon actually appears in the report.
+- Selecting a cruise against dashboard metadata that has no cruise
+  column now raises a clear error instead of silently returning (and
+  downloading) the entire unfiltered dataset; rows with missing cruise
+  or timestamp are dropped instead of appearing as phantom all-NA rows.
+- Error messages in the data-loading sidebar no longer lose their
+  context: only R’s “Error in :” prefix is stripped, instead of
+  everything up to the last colon (which reduced e.g. a download error
+  to “‘404 Not Found’” without the URL).
+- Fix dead class-navigation arrows after “Unclassify Selected” or
+  “Unclassify Class” emptied the region’s last class: the class index is
+  now clamped to the shrunken class list, as “Relabel Class” already
+  did.
+- Fix extra stations added in Settings permanently breaking the app on
+  the next restart: the settings loader turned the saved station list
+  into a data frame, crashing data loading and the Settings tab with “\$
+  operator is invalid for atomic vectors”. Settings files mangled by the
+  old code are repaired automatically on load.
+- Fix stale gallery selections corrupting stored annotations: selections
+  now clear when navigating to another class or region, and “Store
+  Annotations” saves each image under its actual class instead of
+  stamping the currently displayed class onto the whole selection (which
+  could silently overwrite correct annotations in the database).
+- Fix a crash (R session segfault) when building a mosaic from only one
+  or two images, e.g. a front-page mosaic for a region with few taxa.
+- Fix the report post-processing silently corrupting every non-ASCII
+  character (µ, Å/Ä/Ö, –) in the generated Word document on hosts
+  running a non-UTF-8 locale (e.g. servers under a C/POSIX locale). The
+  OOXML parts are now read and written as raw bytes instead of through
+  locale-dependent text connections.
+- The “Relabel Selected” and “Relabel Class” dialogs no longer open with
+  the first class preselected; confirming without picking a target
+  previously relabelled images to an arbitrary class with no undo.
+- Fix the Maps tab and report generation crashing with “undefined
+  columns selected” when the WoRMS lookup is unavailable (offline use):
+  the offline fallback produced a differently shaped phytoplankton-group
+  table than the online path.
+  [`assign_phyto_groups()`](https://nodc-sweden.github.io/ifcb-algaware/reference/assign_phyto_groups.md)
+  now returns a plain vector of group names aligned with its input.
+- Fix a failed cruise load leaving the app half-loaded (the new cruise’s
+  station metadata combined with the previous cruise’s classifications),
+  which could later crash summary recomputation. Loaded state is now
+  committed only after processing succeeds.
+- Define and export the `%||%` operator so the app works on R 4.1-4.3,
+  where base R does not provide it; previously the Maps tab and metadata
+  fetching failed there with `could not find function "%||%"`.
+- Fix a failed summary recomputation (e.g. a missing feature file after
+  excluding a sample) permanently leaving the summary tables, heatmaps
+  and maps describing the previous sample set. The failure is now
+  reported as a notification and recomputation retries on the next tab
+  switch.
+- Fix a failed report generation leaving the previous report
+  downloadable and labelled “Report ready for download”; the download
+  state is now invalidated when a new generation starts.
+- Fix the biomass and phytoplankton-group maps silently discarding whole
+  rows when a single value was missing: a station visit with a missing
+  sample volume under-reported carbon biomass and skewed pie-chart group
+  proportions, and a station missing from the SHARK register vanished
+  without warning. Missing values are now tolerated per column and
+  stations without coordinates are reported.
+- Fix CTD casts without a parsable timestamp being silently discarded
+  during cast deduplication, which removed the whole station from the
+  CTD tab and the report.
+- Fix double-counted biomass for stations listed twice in the SHARK
+  station register with different coordinates (e.g. “G2”): the
+  coordinate join now keeps a single row per station name.
+- Fix report text formatting for HAB-flagged genera: an asterisk was
+  inserted in the middle of full binomials (“Dinophysis\* acuminata”),
+  and custom classes with missing HAB/italic flags caused the literal
+  word “NA” to be asterisked or italicised throughout the report.
+- Fix an LLM response without text content (e.g. a refusal or safety
+  block) aborting the whole report generation after all API calls
+  completed; such responses now fall back to the manual placeholder text
+  like other LLM errors.
+- Fix the station description silently falling back to placeholder text
+  when a warning-level taxon had a missing cell count (missing sample
+  volume).
+- Gallery robustness fixes: an empty image folder no longer replaces the
+  gallery with an error box (the “No images to display” fallback shows
+  instead); the page indicator resets when the page size changes or a
+  new dataset is loaded; images that fail to load now show their “Not
+  found” placeholder; and a drag-select released over empty space no
+  longer swallows the next image click.
+- Fix importing a corrections log re-including samples that had been
+  excluded in the Samples tab, which inflated the report’s image totals
+  until an exclusion was toggled again.
+- Fix a failed CTD reload keeping the previous cruise’s CTD/LIMS data
+  loaded and reportable; the CTD state is now cleared when a new load
+  starts.
+- Fix the regional CTD figure losing all x-axis labels when the last
+  station in the region produced no panel (e.g. all its casts were
+  deduplicated away).
+- Fix closing one app session blanking the front-page mosaic thumbnails
+  in all other open sessions of the same R process; the image resource
+  path is now per session.
+- Fix a single sample without a valid analysed volume switching the
+  whole image concentration map from counts per litre to raw image
+  counts; only the affected samples are now dropped (with a warning).
+- Generated reports no longer accumulate in the server’s temp directory,
+  and two sessions generating a report in the same second can no longer
+  overwrite each other’s file.
+- Fix duplicated station biomass in the report when using the CTD
+  chlorophyll source: repeat casts with slightly different coordinates
+  produced multiple chlorophyll rows per station, and the merge
+  duplicated every taxon row of that station.
+- Fix duplicated “Image mosaics” headings and repeated “Mosaic 1.”
+  captions when both regions had mosaics: the report now has a single
+  section heading and continuous mosaic numbering.
+- Fix the unclassified-image percentage sometimes being attached to the
+  wrong station visit in the report: visit numbering is now derived once
+  from the sample metadata instead of separately from two different row
+  sets that could disagree when a station was visited twice.
+- Fix a sample with a missing timestamp crashing the whole station
+  aggregation; it is now grouped with the current visit.
+- Fix feature files being re-downloaded on every reload: the cached-file
+  check compared the “\_features.csv” file names against bare sample IDs
+  and never matched.
+- Fix interrupted raw-data downloads never being retried: a sample now
+  counts as downloaded only when all three files (.roi, .adc, .hdr) are
+  present, and a failed download is reported in the progress status
+  instead of “Raw data downloaded”. Missing .hdr files previously made
+  ml_analyzed unavailable, silently inflating per-litre concentrations.
+- Move `yaml` from Suggests to Imports: it is required unconditionally
+  for phytoplankton-group assignment, and installations without it
+  silently produced reports with no group classification. A failed group
+  assignment during report generation now emits a warning instead of
+  being swallowed.
+- Fix LLM prompt assembly for stations with missing sample volumes: an
+  all-NA station no longer loses its description to a “no rows to
+  aggregate” error, and missing counts/biovolume values are now spelled
+  out as “not available” in the prompt instead of a literal “NA”, which
+  gave the model no signal that the value was missing.
+- Fix a read-only or locked annotations database aborting the whole
+  cruise load: read paths no longer run schema DDL and degrade
+  gracefully (empty annotations / auto-generated class list, with a
+  warning). All database connections now set a 5-second busy timeout so
+  brief write locks from ClassiPyR wait instead of failing immediately.
+- Fix a crash (“could not find function `build_cruise_info`”) when
+  excluding a sample in the installed app: the helper is now exported so
+  `inst/app/server.R` can call it.
+- Fix gallery selection state getting out of sync between the browser
+  and the server. Previously the highlights could show images as
+  deselected while they were still selected server-side (or vice versa),
+  so a later relabel or store-annotations action could silently include
+  images from an earlier selection. The server-side selection is now
+  mirrored to the browser on every change and re-applied after each
+  gallery re-render.
+
 ## algaware 0.2.0
 
 ### Minor improvements and fixes

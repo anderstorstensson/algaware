@@ -17,4 +17,5 @@ create_biomass_maps(station_summary)
 
 ## Value
 
-A list with `biomass_map` and `chl_map` ggplot objects.
+A list with `biomass_map` and `chl_map` ggplot objects, or `NULL` when
+no station has usable coordinates.

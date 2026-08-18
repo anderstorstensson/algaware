@@ -39,7 +39,7 @@ footer {
 
     <a class="navbar-brand me-2" href="../index.html">algaware</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.2.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.2.0.9000</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -74,7 +74,7 @@ footer {
   <main id="main" class="col-md-9"><div class="page-header">
 
       <h1>Assign phytoplankton groups using the bundled YAML configuration</h1>
-      <small class="dont-index">Source: <a href="https://github.com/nodc-sweden/ifcb-algaware/blob/0.2.0/R/taxa.R" class="external-link"><code>R/taxa.R</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/nodc-sweden/ifcb-algaware/blob/main/R/taxa.R" class="external-link"><code>R/taxa.R</code></a></small>
       <div class="d-none name"><code>assign_phyto_groups.Rd</code></div>
     </div>
 
@@ -107,7 +107,12 @@ class/phylum mappings do not need to be hardcoded in application code.</p>
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
-    <p>Return value of <code><a href="https://sharksmhi.github.io/SHARK4R/reference/assign_phytoplankton_group.html" class="external-link">SHARK4R::assign_phytoplankton_group()</a></code>.</p>
+    <p>Character vector of group names, one per element of
+<code>scientific_names</code>; unresolved taxa are <code>"Other"</code>. (The raw
+<code><a href="https://sharksmhi.github.io/SHARK4R/reference/assign_phytoplankton_group.html" class="external-link">SHARK4R::assign_phytoplankton_group()</a></code> data frame is not returned:
+its <code>left_join</code> shape leaked into callers as nested
+<code>phyto_group.*</code> columns and could drop or duplicate rows, so it is
+realigned to the input here.)</p>
     </div>
 
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
@@ -119,7 +124,7 @@ class/phylum mappings do not need to be hardcoded in application code.</p>
 </div>
 
 <div class="pkgdown-footer-right">
-  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.0.</p>
+  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.1.</p>
 </div>
 
     </footer></div>

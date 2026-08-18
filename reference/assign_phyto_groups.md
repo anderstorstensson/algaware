@@ -28,5 +28,9 @@ assign_phyto_groups(scientific_names, aphia_ids = NULL, verbose = FALSE)
 
 ## Value
 
-Return value of
-[`SHARK4R::assign_phytoplankton_group()`](https://sharksmhi.github.io/SHARK4R/reference/assign_phytoplankton_group.html).
+Character vector of group names, one per element of `scientific_names`;
+unresolved taxa are `"Other"`. (The raw
+[`SHARK4R::assign_phytoplankton_group()`](https://sharksmhi.github.io/SHARK4R/reference/assign_phytoplankton_group.html)
+data frame is not returned: its `left_join` shape leaked into callers as
+nested `phyto_group.*` columns and could drop or duplicate rows, so it
+is realigned to the input here.)
