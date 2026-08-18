@@ -269,12 +269,16 @@ build_cruise_info <- function(sample_times) {
 #'
 #' Strips the leading "Error in <call>: " prefix that R prepends to condition
 #' messages so that only the human-readable part is shown in the sidebar.
+#' Only that exact prefix is removed: the old greedy pattern (`"^.*: "`)
+#' stripped everything up to the *last* colon, reducing e.g.
+#' `cannot open URL 'https://...': HTTP status was '404 Not Found'` to just
+#' `'404 Not Found'` -- and this is the only error surface the app has.
 #'
 #' @param msg Character string (typically \code{e$message}).
 #' @return Simplified character string.
 #' @keywords internal
 sanitize_error_msg <- function(msg) {
-  sub("^.*: ", "", msg)
+  sub("^Error in [^:]*: ", "", msg)
 }
 
 #' Data Loader Module Server

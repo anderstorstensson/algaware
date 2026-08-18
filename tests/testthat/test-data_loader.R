@@ -87,3 +87,14 @@ test_that("compute_presence_categories assigns correct categories", {
   expect_equal(result$Presence_cat[2], 4L)
   expect_equal(result$Presence_cat[3], 4L)
 })
+
+test_that("sanitize_error_msg keeps context after inner colons", {
+  # Regression: the greedy pattern stripped everything up to the LAST
+  # colon, reducing the only error surface in the app to fragments like
+  # "'404 Not Found'" with the URL and failing operation gone.
+  msg <- "cannot open URL 'https://x.se/a': HTTP status was '404 Not Found'"
+  expect_equal(algaware:::sanitize_error_msg(msg), msg)
+
+  prefixed <- paste0("Error in download(): ", msg)
+  expect_equal(algaware:::sanitize_error_msg(prefixed), msg)
+})
