@@ -140,6 +140,17 @@ mod_validation_server <- function(id, rv, config) {
     # selection. Returns the number of images changed (0 if none matched, in
     # which case the selection is still cleared). Callers handle their own
     # notifications since the wording differs.
+    # Keep rv$current_class_idx within the region's (possibly shrunken)
+    # class list after an action that can empty classes -- the same clamp
+    # confirm_relabel applies inline. Without it, emptying the last class of
+    # a region left the index past the end, showing "Class N of N" with dead
+    # navigation arrows for the first click(s).
+    clamp_class_index <- function() {
+      ctx <- get_region_context(rv)
+      rv$current_class_idx <- max(1L, min(rv$current_class_idx,
+                                          length(ctx$classes)))
+    }
+
     relabel_selected_images <- function(target) {
       parsed <- parse_image_ids(rv$selected_images)
 
@@ -170,6 +181,7 @@ mod_validation_server <- function(id, rv, config) {
                                   updated$roi_number[mask], target)
       rv$selected_images <- character(0)
       rv$summaries_stale <- TRUE
+      clamp_class_index()
 
       n_changed
     }
@@ -181,15 +193,39 @@ mod_validation_server <- function(id, rv, config) {
       ctx <- get_region_context(rv)
       if (is.null(ctx$current_class)) return()
 
-      # Parse selected image IDs back to sample_name + roi_number
+      # Parse selected image IDs back to sample_name + roi_number, and take
+      # each image's class from the working classification table rather than
+      # from the class currently displayed in the gallery. Stamping the
+      # displayed class onto the whole selection could silently overwrite
+      # correct database annotations with the wrong class whenever the
+      # selection contained images from another class.
       parsed <- parse_image_ids(rv$selected_images)
-      parsed$class_name <- ctx$current_class
-
-      # Validate class against class list before saving
-      if (length(rv$class_list) > 0 &&
-          !ctx$current_class %in% rv$class_list) {
+      cls_keys <- paste0(rv$classifications$sample_name, "_",
+                         rv$classifications$roi_number)
+      idx <- match(paste0(parsed$sample_name, "_", parsed$roi_number),
+                   cls_keys)
+      parsed$class_name <- rv$classifications$class_name[idx]
+      parsed <- parsed[!is.na(parsed$class_name), , drop = FALSE]
+      if (nrow(parsed) == 0) {
         shiny::showNotification(
-          paste0("'", ctx$current_class, "' is not in the database class ",
+          "None of the selected images are in the loaded classifications.",
+          type = "warning"
+        )
+        rv$selected_images <- character(0)
+        return()
+      }
+
+      # Validate classes against class list before saving
+      selected_classes <- unique(parsed$class_name)
+      invalid_classes <- if (length(rv$class_list) > 0) {
+        setdiff(selected_classes, rv$class_list)
+      } else {
+        character(0)
+      }
+      if (length(invalid_classes) > 0) {
+        shiny::showNotification(
+          paste0("'", paste(invalid_classes, collapse = "', '"),
+                 "' is not in the database class ",
                  "list. Only database classes can be saved as annotations. ",
                  "This class may be from the taxa lookup or a custom class."),
           type = "error", duration = 8
@@ -213,9 +249,13 @@ mod_validation_server <- function(id, rv, config) {
       )
 
       if (success) {
+        class_label <- if (length(selected_classes) == 1) {
+          selected_classes
+        } else {
+          paste0(length(selected_classes), " classes")
+        }
         shiny::showNotification(
-          paste0("Saved ", nrow(parsed), " annotations for ",
-                 ctx$current_class),
+          paste0("Saved ", nrow(parsed), " annotations for ", class_label),
           type = "message"
         )
         rv$selected_images <- character(0)
@@ -244,8 +284,12 @@ mod_validation_server <- function(id, rv, config) {
           "Move the selected images to a different class. ",
           "This only affects the current session (not stored in database)."
         )),
+        # selected = "" keeps the dropdown empty so the placeholder shows;
+        # without it Shiny preselects the first choice and a hasty "Relabel"
+        # click moves the images to a class the user never picked.
         shiny::selectizeInput(ns("relabel_selected_target"), "Target class",
                               choices = grouped,
+                              selected = "",
                               options = list(
                                 placeholder = "Type to search...",
                                 maxOptions = 500
@@ -320,8 +364,11 @@ mod_validation_server <- function(id, rv, config) {
           if (rv$current_region == "EAST") "Baltic Sea" else "West Coast",
           " to a different class."
         )),
+        # selected = "" keeps the dropdown empty so the placeholder shows
+        # (see relabel_selected_target above).
         shiny::selectizeInput(ns("relabel_target"), "Target class",
                               choices = grouped,
+                              selected = "",
                               options = list(
                                 placeholder = "Type to search...",
                                 maxOptions = 500
@@ -426,6 +473,7 @@ mod_validation_server <- function(id, rv, config) {
 
       rv$invalidated_classes <- unique(c(rv$invalidated_classes,
                                          ctx$current_class))
+      clamp_class_index()
 
       shiny::removeModal()
       shiny::showNotification(
@@ -609,7 +657,17 @@ mod_validation_server <- function(id, rv, config) {
       result$class_name[match_idx[valid]] <- df$new_class[valid]
 
       rv$classifications_all <- result
-      rv$classifications     <- result
+      # `classifications_original` is the full load-time snapshot, so re-apply
+      # the current sample exclusions when deriving the active slice.
+      # Assigning the full set here used to resurrect excluded samples in
+      # rv$classifications, inflating the report's image totals.
+      active <- if (!is.null(rv$matched_metadata_all)) {
+        setdiff(unique(rv$matched_metadata_all$pid), rv$excluded_samples)
+      } else {
+        unique(result$sample_name)
+      }
+      rv$classifications <- result[result$sample_name %in% active, ,
+                                   drop = FALSE]
 
       # Rebuild corrections log (drop custom metadata columns)
       rv$corrections <- df[, c("sample_name", "roi_number",

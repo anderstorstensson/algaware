@@ -11,7 +11,8 @@ create_biomass_maps(station_summary)
 \code{aggregate_station_data()}.}
 }
 \value{
-A list with \code{biomass_map} and \code{chl_map} ggplot objects.
+A list with \code{biomass_map} and \code{chl_map} ggplot objects,
+or \code{NULL} when no station has usable coordinates.
 }
 \description{
 Create biomass and chlorophyll maps

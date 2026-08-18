@@ -2,7 +2,7 @@
 % Please edit documentation in R/report_frontpage.R
 \name{fix_page_numbering}
 \alias{fix_page_numbering}
-\title{Fix page numbering to start at 1 after the front page}
+\title{Post-process the report .docx (page numbering and field flags)}
 \usage{
 fix_page_numbering(docx_path)
 }
@@ -10,7 +10,17 @@ fix_page_numbering(docx_path)
 \item{docx_path}{Path to the .docx file.}
 }
 \description{
-Post-processes the .docx file XML to add \code{pgNumType} with
-\code{start="1"} to the second section (first content section).
+Performs two fixes on the assembled document:
+\enumerate{
+\item Adds \code{pgNumType} with \code{start="1"} to the second section
+(the first content section) so page numbers restart after the front
+page.
+\item Strips \code{w:dirty="true"} from the page-number field that officer
+emits via \code{run_word_field()}. The dirty flag makes Word prompt
+"This document contains fields that may refer to other files. Do you
+want to update the fields?" on every open. Removing it suppresses the
+prompt; \code{PAGE} fields are still recomputed automatically during
+layout, so page numbers display correctly.
+}
 }
 \keyword{internal}

@@ -74,8 +74,11 @@ test_that("download_raw_data skips existing files", {
   dir.create(tmp_dir, recursive = TRUE, showWarnings = FALSE)
   on.exit(unlink(tmp_dir, recursive = TRUE), add = TRUE)
 
-  # Create an existing .roi file
-  writeLines("", file.path(tmp_dir, "D20220101T000000_IFCB134.roi"))
+  # Create a complete existing file set (.roi/.adc/.hdr)
+  for (ext in c("roi", "adc", "hdr")) {
+    writeLines("", file.path(tmp_dir,
+                             paste0("D20220101T000000_IFCB134.", ext)))
+  }
 
   callback_called <- FALSE
   callback <- function(current, total, msg) {
@@ -180,13 +183,54 @@ test_that("download_raw_data calls progress for all-skipped", {
   dir.create(tmp_dir, recursive = TRUE, showWarnings = FALSE)
   on.exit(unlink(tmp_dir, recursive = TRUE), add = TRUE)
 
-  writeLines("", file.path(tmp_dir, "D20220101T000000_IFCB134.roi"))
-  writeLines("", file.path(tmp_dir, "D20220101T000001_IFCB134.roi"))
+  # A sample only counts as downloaded when .roi, .adc AND .hdr are present
+  for (pid in c("D20220101T000000_IFCB134", "D20220101T000001_IFCB134")) {
+    for (ext in c("roi", "adc", "hdr")) {
+      writeLines("", file.path(tmp_dir, paste0(pid, ".", ext)))
+    }
+  }
 
   msgs <- character(0)
   callback <- function(current, total, msg) msgs <<- c(msgs, msg)
 
   download_raw_data("https://example.com",
+                    c("D20220101T000000_IFCB134", "D20220101T000001_IFCB134"),
+                    tmp_dir, progress_callback = callback)
+  expect_true(any(grepl("already downloaded", msgs)))
+})
+
+test_that("download_raw_data retries samples with incomplete file sets", {
+  tmp_dir <- file.path(tempdir(), paste0("raw_partial_", Sys.getpid()))
+  dir.create(tmp_dir, recursive = TRUE, showWarnings = FALSE)
+  on.exit(unlink(tmp_dir, recursive = TRUE), add = TRUE)
+
+  # Regression: .roi present but .hdr/.adc missing (interrupted download)
+  # used to be treated as complete, so ml_analyzed stayed unavailable.
+  writeLines("", file.path(tmp_dir, "D20220101T000000_IFCB134.roi"))
+
+  requested <- NULL
+  mockery::stub(download_raw_data, "iRfcb::ifcb_download_dashboard_data",
+                function(dashboard_url, samples, ...) requested <<- samples)
+
+  download_raw_data("https://example.com",
+                    c("D20220101T000000_IFCB134"), tmp_dir)
+  expect_equal(requested, "D20220101T000000_IFCB134")
+})
+
+test_that("download_features recognises suffixed feature files as downloaded", {
+  tmp_dir <- file.path(tempdir(), paste0("feat_suffix_", Sys.getpid()))
+  dir.create(tmp_dir, recursive = TRUE, showWarnings = FALSE)
+  on.exit(unlink(tmp_dir, recursive = TRUE), add = TRUE)
+
+  # Regression: the "_features"/"_fea_vN" suffix meant the existing-file
+  # check never matched the bare sample IDs, re-downloading every reload.
+  writeLines("", file.path(tmp_dir, "D20220101T000000_IFCB134_features.csv"))
+  writeLines("", file.path(tmp_dir, "D20220101T000001_IFCB134_fea_v2.csv"))
+
+  msgs <- character(0)
+  callback <- function(current, total, msg) msgs <<- c(msgs, msg)
+
+  download_features("https://example.com",
                     c("D20220101T000000_IFCB134", "D20220101T000001_IFCB134"),
                     tmp_dir, progress_callback = callback)
   expect_true(any(grepl("already downloaded", msgs)))
@@ -447,4 +491,27 @@ test_that("copy_classification_files works when root is already a year dir", {
   expect_true(file.exists(
     file.path(tmp_dest, "D20260107T222955_IFCB134_class.h5")
   ))
+})
+
+test_that("filter_metadata errors when cruise column is missing", {
+  # Regression: a requested cruise against metadata without a cruise column
+  # silently returned the entire unfiltered dataset.
+  metadata <- data.frame(pid = c("a", "b"), stringsAsFactors = FALSE)
+  expect_error(filter_metadata(metadata, cruise = "C001"), "no cruise column")
+})
+
+test_that("filter_metadata drops NA cruise and NA date rows", {
+  metadata <- data.frame(
+    pid = c("a", "b", "c"),
+    cruise = c("C001", NA, "C002"),
+    sample_time = as.POSIXct(c("2022-01-05 10:00", NA, "2022-01-20 10:00"),
+                             tz = "UTC"),
+    stringsAsFactors = FALSE
+  )
+  by_cruise <- filter_metadata(metadata, cruise = "C001")
+  expect_equal(by_cruise$pid, "a")
+
+  by_date <- filter_metadata(metadata, date_from = "2022-01-01",
+                             date_to = "2022-01-31")
+  expect_equal(by_date$pid, c("a", "c"))
 })

@@ -255,8 +255,13 @@ mod_gallery_server <- function(id, rv, config) {
       raw_dir <- file.path(storage, "raw")
       extract_gallery_pngs(imgs, raw_dir, gallery_dir)
 
-      # Register resource path once per session
+      # Register resource path once per session. Create the directory first:
+      # extract_gallery_pngs() only creates it as a side effect of a
+      # successful extraction, and addResourcePath() on a missing directory
+      # errors, replacing the whole gallery with a red error box instead of
+      # the "No images to display" fallback.
       if (!resource_registered) {
+        dir.create(gallery_dir, recursive = TRUE, showWarnings = FALSE)
         resource_name <- paste0("gallery_", session$token)
         shiny::addResourcePath(resource_name, gallery_dir)
         resource_registered <<- TRUE
@@ -320,6 +325,7 @@ mod_gallery_server <- function(id, rv, config) {
       new_idx <- match(sel, classes)
       if (!is.na(new_idx) && new_idx != rv$current_class_idx) {
         rv$current_class_idx <- new_idx
+        rv$selected_images <- character(0)
         page(1L)
       }
     })
@@ -394,9 +400,16 @@ mod_gallery_server <- function(id, rv, config) {
     })
 
     # ---- Class and page navigation ----
+    # Navigating to another class or region clears the selection. Selections
+    # used to survive navigation invisibly (the highlights are wiped by the
+    # re-render), so a later "Store Annotations" or "Relabel Selected" would
+    # silently include images picked in a previously viewed class. Page
+    # navigation within a class intentionally keeps the selection (the
+    # "Select Page" workflow spans pages).
     shiny::observeEvent(input$prev_class, {
       if (rv$current_class_idx > 1) {
         rv$current_class_idx <- rv$current_class_idx - 1L
+        rv$selected_images <- character(0)
         page(1L)
       }
     })
@@ -405,6 +418,7 @@ mod_gallery_server <- function(id, rv, config) {
       classes <- region_classes()
       if (rv$current_class_idx < length(classes)) {
         rv$current_class_idx <- rv$current_class_idx + 1L
+        rv$selected_images <- character(0)
         page(1L)
       }
     })
@@ -412,6 +426,24 @@ mod_gallery_server <- function(id, rv, config) {
     shiny::observeEvent(input$region_toggle, {
       rv$current_class_idx <- 1L
       rv$current_region <- input$region_toggle
+      rv$selected_images <- character(0)
+      page(1L)
+    })
+
+    # Reset to page 1 whenever the page size changes, the class index is
+    # changed from outside this module (e.g. the validation module clamping
+    # it after a whole-class relabel), or a new dataset is loaded. The
+    # paginator only clamps what is *displayed*, so a stale page() left the
+    # "page X/Y" label and prev/next buttons out of sync with the screen.
+    shiny::observeEvent(input$page_size, {
+      page(1L)
+    }, ignoreInit = TRUE)
+
+    shiny::observeEvent(rv$current_class_idx, {
+      page(1L)
+    })
+
+    shiny::observeEvent(rv$matched_metadata_all, {
       page(1L)
     })
 
@@ -431,6 +463,18 @@ mod_gallery_server <- function(id, rv, config) {
     # a message to R (input$toggle_image), and R updates rv$selected_images.
     # The visual highlight (CSS class .selected) is toggled client-side in JS
     # for instant feedback without a server round-trip.
+    #
+    # rv$selected_images is the single source of truth. Every change to it --
+    # including clears done by mod_validation after relabel/store-annotations --
+    # is mirrored to the browser below, and gallery.js re-applies the mirrored
+    # state after each gallery re-render (renderUI replaces the DOM, which
+    # would otherwise wipe the .selected highlights while the images remained
+    # selected server-side).
+    shiny::observeEvent(rv$selected_images, {
+      session$sendCustomMessage("syncSelection",
+                                list(selected = as.list(rv$selected_images)))
+    }, ignoreNULL = FALSE)
+
     shiny::observeEvent(input$toggle_image, {
       img_id <- input$toggle_image$img
       if (img_id %in% rv$selected_images) {
@@ -446,22 +490,18 @@ mod_gallery_server <- function(id, rv, config) {
       rv$selected_images <- union(rv$selected_images, new_imgs)
     })
 
-    # Select all images on current page, then sync visual state to browser.
-    # syncSelection is a JS handler (gallery.js) that adds/removes the
-    # .selected CSS class on image cards to match the R-side state.
+    # Select all images on current page. The browser highlight follows via
+    # the rv$selected_images -> syncSelection mirror above.
     shiny::observeEvent(input$select_page, {
       imgs <- tryCatch(paginated(), error = function(e) NULL)
       if (is.null(imgs) || nrow(imgs) == 0) return()
       img_ids <- paste0(imgs$sample_name, "_", imgs$roi_number)
       rv$selected_images <- union(rv$selected_images, img_ids)
-      session$sendCustomMessage("syncSelection",
-                                list(selected = rv$selected_images))
     })
 
-    # Clear all selections and sync to browser
+    # Clear all selections
     shiny::observeEvent(input$deselect, {
       rv$selected_images <- character(0)
-      session$sendCustomMessage("syncSelection", list(selected = list()))
     })
 
     # ---- Measure tool (ruler overlay, handled in gallery.js) ----

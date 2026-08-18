@@ -238,7 +238,17 @@ aggregate_station_data <- function(biovolume_data, metadata) {
   )
 
   all_data$sample_date <- as.Date(all_data$sample_time)
-  all_data <- assign_station_visits(all_data)
+
+  # Derive visit numbering from the metadata (one row per sample), not from
+  # the biovolume rows: samples absent here (failed feature file, only
+  # non-biological classes) would otherwise shift the numbering relative to
+  # compute_unclassified_fractions(), attaching unclassified percentages to
+  # the wrong visit in the report.
+  visits <- assign_station_visits(
+    metadata[, c("pid", "STATION_NAME", "sample_time")]
+  )
+  all_data <- merge(all_data, visits[, c("pid", "visit_id")],
+                    by.x = "sample", by.y = "pid", all.x = TRUE)
 
   visit_dates <- compute_visit_dates(all_data)
   all_data <- merge(all_data, visit_dates, by = c("visit_id", "STATION_NAME"),
@@ -282,11 +292,16 @@ aggregate_station_data <- function(biovolume_data, metadata) {
 
   agg <- compute_per_liter(agg)
 
-  # Join station coordinates
+  # Join station coordinates. The SHARK register contains a handful of
+  # station names listed twice with different coordinates (e.g. "G2");
+  # unique() on the name+coordinate triplet keeps both rows, and the merge
+  # would then duplicate every (visit, taxon) row of that station, doubling
+  # its biomass everywhere downstream. Keep exactly one row per name.
   station_list <- load_shark_stations(verbose = FALSE)
   station_coords <- unique(station_list[, c("STATION_NAME",
                                             "LATITUDE_WGS84_SWEREF99_DD",
                                             "LONGITUDE_WGS84_SWEREF99_DD")])
+  station_coords <- station_coords[!duplicated(station_coords$STATION_NAME), ]
   agg <- merge(agg, station_coords, by = "STATION_NAME", all.x = TRUE)
 
   compute_presence_categories(agg)
@@ -398,7 +413,16 @@ compute_unclassified_fractions <- function(classifications, matched_metadata) {
   )
   if (nrow(merged) == 0) return(list())
 
-  merged <- assign_station_visits(merged)
+  # Use the same per-sample visit numbering as aggregate_station_data():
+  # both must derive visits from the full metadata so the visit_ids line up
+  # (see the comment there).
+  visits <- assign_station_visits(
+    matched_metadata[, c("pid", "STATION_NAME", "sample_time")]
+  )
+  merged <- merge(merged, visits[, c("pid", "visit_id")],
+                  by.x = "sample_name", by.y = "pid", all.x = TRUE)
+  merged <- merged[!is.na(merged$visit_id), , drop = FALSE]
+  if (nrow(merged) == 0) return(list())
 
   # Count total and unclassified per visit
   visit_totals <- stats::aggregate(

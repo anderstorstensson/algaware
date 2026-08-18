@@ -16,7 +16,7 @@ call_openai(
 
 \item{user_prompt}{User prompt string.}
 
-\item{model}{OpenAI model name (default: "gpt-4.1").}
+\item{model}{OpenAI model name (default: \code{llm_model_name("openai")}).}
 
 \item{temperature}{Sampling temperature (default: 0.3). Lower values
 produce more deterministic, factual output; higher values are more

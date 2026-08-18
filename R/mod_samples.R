@@ -118,7 +118,10 @@ mod_samples_server <- function(id, rv, config) {
         options = list(
           pageLength = 15,
           scrollX = TRUE,
-          order = list(list(6, "asc"))
+          # 0-indexed with rownames = FALSE: column 5 is Time. Column 6 was
+          # ROI_MB, which re-sorted the table by file size and scrambled the
+          # deliberate chronological (cruise-track) order.
+          order = list(list(5, "asc"))
         )
       ) |>
         DT::formatRound("ROI_MB", 2)

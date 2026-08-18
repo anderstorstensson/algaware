@@ -122,7 +122,13 @@ create_mosaic <- function(image_paths, n_images = 32L,
         return(list(fits = FALSE))
       }
 
-      remaining_idx <- seq.int(n_top + 1L, length(scaled_w))
+      # seq.int(n_top + 1L, n) counts backwards when n <= n_top, producing
+      # out-of-range indices (NA sizes) that segfault rectpacker downstream.
+      remaining_idx <- if (length(scaled_w) > n_top) {
+        seq.int(n_top + 1L, length(scaled_w))
+      } else {
+        integer(0)
+      }
       if (length(remaining_idx) == 0L) {
         return(list(
           fits = TRUE,

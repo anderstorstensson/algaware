@@ -1,3 +1,18 @@
+#' Null coalescing operator
+#'
+#' Base R only ships \code{\%||\%} from 4.4.0, while this package supports
+#' R >= 4.1. It must also be exported (not just defined internally): the
+#' Shiny app in \code{inst/app/} resolves names through the attached
+#' namespace, so an internal definition would leave \code{server.R} without
+#' it on older R versions.
+#'
+#' @param x,y Any objects.
+#' @return \code{x} unless it is \code{NULL}, in which case \code{y}.
+#' @name null-coalesce
+#' @keywords internal
+#' @export
+`%||%` <- function(x, y) if (is.null(x)) y else x
+
 #' Get the configuration directory for algaware
 #'
 #' @return Path to the configuration directory
@@ -97,16 +112,43 @@ load_settings <- function() {
   }
 
   tryCatch({
-    saved <- jsonlite::fromJSON(path, simplifyVector = TRUE)
+    # simplifyDataFrame = FALSE keeps `extra_stations` (saved as a JSON array
+    # of objects) a list of per-station lists. The default simplification
+    # turned it into a data.frame, which every consumer (station loading,
+    # the Settings tab) then crashed on with "$ operator is invalid for
+    # atomic vectors" -- permanently, since the Settings tab could no longer
+    # open to remove the station.
+    saved <- jsonlite::fromJSON(path, simplifyVector = TRUE,
+                                simplifyDataFrame = FALSE)
     # Merge saved over defaults (saved values win)
     for (key in names(saved)) {
       defaults[[key]] <- saved[[key]]
     }
+    defaults$extra_stations <- normalize_extra_stations(defaults$extra_stations)
     defaults
   }, error = function(e) {
     warning("Failed to load settings: ", e$message, call. = FALSE)
     default_settings()
   })
+}
+
+#' Normalise extra_stations to a list of per-station lists
+#'
+#' Settings files written while the data.frame read bug was live may have been
+#' re-saved in a mangled shape; accept both a data.frame and a list of lists
+#' so those installations recover on the next load.
+#'
+#' @param x The \code{extra_stations} value read from settings.
+#' @return A list of station lists (possibly empty).
+#' @keywords internal
+normalize_extra_stations <- function(x) {
+  if (is.data.frame(x)) {
+    return(lapply(seq_len(nrow(x)), function(i) as.list(x[i, ])))
+  }
+  if (!is.list(x)) {
+    return(list())
+  }
+  x
 }
 
 #' Save settings to disk

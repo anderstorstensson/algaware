@@ -144,7 +144,13 @@ generate_report <- function(output_path, station_summary,
           scientific_names = taxa$name,
           aphia_ids        = taxa$AphiaID
         ),
-        error = function(e) NULL
+        error = function(e) {
+          # Surface the reason: silently collapsing to NULL produced a
+          # report without any phytoplankton-group content and no clue why.
+          warning("Phytoplankton group assignment failed: ",
+                  conditionMessage(e), call. = FALSE)
+          NULL
+        }
       )
       if (!is.null(groups)) {
         phyto_groups <- data.frame(
@@ -203,9 +209,15 @@ generate_report <- function(output_path, station_summary,
       if (use_llm) " Report text was drafted with the assistance of a large language model." else NULL
     ), collapse = "")
   )
+  # Only promise the asterisk legend when a HAB-flagged taxon actually
+  # appears in this report. Checking the whole lookup (130 of 180 bundled
+  # rows are HAB-flagged) printed the legend on every report, including
+  # cruises where no asterisk appears anywhere in the document.
+  report_taxa <- unique(station_summary$name)
   has_hab <- !is.null(taxa_lookup) &&
     "HAB" %in% names(taxa_lookup) &&
-    any(taxa_lookup$HAB == TRUE, na.rm = TRUE)
+    any(taxa_lookup$HAB[taxa_lookup$name %in% report_taxa] == TRUE,
+        na.rm = TRUE)
 
   normal_prop <- officer::fp_text(font.size = 11,
                                   font.family = "Adobe Garamond Pro")
@@ -397,21 +409,25 @@ generate_report <- function(output_path, station_summary,
     "FerryBox chlorophyll fluorescence"
   )
 
-  doc <- add_centered_plot(doc, chl_map_plot, cleanup,
-    width = 7, height = 4, display_width = 5.8, display_height = 3.2)
-  doc <- officer::body_add_fpar(doc, officer::fpar(
-    officer::ftext(
-      paste0("Figure ", fig_num,
-             ". ", chl_caption_source, " at AlgAware stations",
-             if (nzchar(month_year)) {
-               paste0(" during the ", month_year, " cruise.")
-             } else {
-               "."
-             }),
-      officer::fp_text(font.size = 10, font.family = "Adobe Garamond Pro")
-    ), fp_p = left_pp
-  ))
-  fig_num <- fig_num + 1L
+  # chl_map_plot can be NULL when no station has usable coordinates
+  # (create_biomass_maps() returns NULL); skip the figure rather than abort.
+  if (!is.null(chl_map_plot)) {
+    doc <- add_centered_plot(doc, chl_map_plot, cleanup,
+      width = 7, height = 4, display_width = 5.8, display_height = 3.2)
+    doc <- officer::body_add_fpar(doc, officer::fpar(
+      officer::ftext(
+        paste0("Figure ", fig_num,
+               ". ", chl_caption_source, " at AlgAware stations",
+               if (nzchar(month_year)) {
+                 paste0(" during the ", month_year, " cruise.")
+               } else {
+                 "."
+               }),
+        officer::fp_text(font.size = 10, font.family = "Adobe Garamond Pro")
+      ), fp_p = left_pp
+    ))
+    fig_num <- fig_num + 1L
+  }
 
   sample_counts <- build_sample_counts(station_summary)
 
@@ -473,10 +489,15 @@ generate_report <- function(output_path, station_summary,
   }
 
   hab_species <- get_hab_species(taxa_lookup)
-  doc <- add_mosaic_section(doc, westcoast_mosaics, hab_species,
-                            "West Coast", cleanup, taxa_lookup)
-  doc <- add_mosaic_section(doc, baltic_mosaics, hab_species, "Baltic Sea",
-                            cleanup, taxa_lookup)
+  result <- add_mosaic_section(doc, westcoast_mosaics, hab_species,
+                               "West Coast", cleanup, taxa_lookup,
+                               mosaic_num = 1L, add_heading = TRUE)
+  doc <- result$doc
+  result <- add_mosaic_section(doc, baltic_mosaics, hab_species, "Baltic Sea",
+                               cleanup, taxa_lookup,
+                               mosaic_num = result$mosaic_num,
+                               add_heading = !result$heading_added)
+  doc <- result$doc
 
   page_footer <- officer::block_list(
     officer::fpar(

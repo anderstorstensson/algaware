@@ -190,35 +190,49 @@ server <- function(input, output, session) {
       return(invisible(NULL))
     }
 
-    non_bio <- parse_non_bio_classes(config$non_biological_classes)
-    taxa_lookup <- merge_custom_taxa(rv$taxa_lookup, rv$custom_classes)
-    storage <- config$local_storage_path
+    # Mark stale before doing the work: it is cleared only when the
+    # computation succeeds, so a failure (e.g. a missing feature file) leaves
+    # the flag TRUE and the tab-switch observer below retries once the
+    # underlying problem is fixed. Previously an error killed the observer
+    # with summaries still describing the old sample set and no retry path.
+    rv$summaries_stale <- TRUE
 
-    biovolume_data <- summarize_biovolumes(
-      file.path(storage, "features"),
-      file.path(storage, "raw"),
-      rv$classifications, taxa_lookup, non_bio,
-      pixels_per_micron = config$pixels_per_micron,
-      custom_classes = rv$custom_classes
-    )
+    tryCatch({
+      non_bio <- parse_non_bio_classes(config$non_biological_classes)
+      taxa_lookup <- merge_custom_taxa(rv$taxa_lookup, rv$custom_classes)
+      storage <- config$local_storage_path
 
-    station_summary <- aggregate_station_data(
-      biovolume_data, rv$matched_metadata
-    )
+      biovolume_data <- summarize_biovolumes(
+        file.path(storage, "features"),
+        file.path(storage, "raw"),
+        rv$classifications, taxa_lookup, non_bio,
+        pixels_per_micron = config$pixels_per_micron,
+        custom_classes = rv$custom_classes
+      )
 
-    rv$ferrybox_chl <- compute_ferrybox_summary(rv$matched_metadata,
-                                                rv$ferrybox_data)
+      station_summary <- aggregate_station_data(
+        biovolume_data, rv$matched_metadata
+      )
 
-    # Re-attach ferrybox chlorophyll data
-    if (!is.null(rv$ferrybox_chl)) {
-      station_summary <- merge(station_summary, rv$ferrybox_chl,
-                               by = "STATION_NAME", all.x = TRUE)
-    }
+      rv$ferrybox_chl <- compute_ferrybox_summary(rv$matched_metadata,
+                                                  rv$ferrybox_data)
 
-    rv$station_summary <- station_summary
-    rv$baltic_wide <- create_wide_summary(station_summary, "EAST")
-    rv$westcoast_wide <- create_wide_summary(station_summary, "WEST")
-    rv$summaries_stale <- FALSE
+      # Re-attach ferrybox chlorophyll data
+      if (!is.null(rv$ferrybox_chl)) {
+        station_summary <- merge(station_summary, rv$ferrybox_chl,
+                                 by = "STATION_NAME", all.x = TRUE)
+      }
+
+      rv$station_summary <- station_summary
+      rv$baltic_wide <- create_wide_summary(station_summary, "EAST")
+      rv$westcoast_wide <- create_wide_summary(station_summary, "WEST")
+      rv$summaries_stale <- FALSE
+    }, error = function(e) {
+      showNotification(
+        paste("Failed to update summaries:", conditionMessage(e)),
+        type = "error", duration = 10
+      )
+    })
   }
 
   refresh_active_dataset <- function() {

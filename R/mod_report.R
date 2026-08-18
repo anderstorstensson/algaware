@@ -73,6 +73,13 @@ mod_report_server <- function(id, rv, config, phyto_groups_reactive = NULL) {
     report_path <- shiny::reactiveVal(NULL)
     corrections_path <- shiny::reactiveVal(NULL)
 
+    # Remove this session's generated files when it ends; tempdir() lives as
+    # long as the R process, not the session.
+    session$onSessionEnded(function() {
+      unlink(c(shiny::isolate(report_path()),
+               shiny::isolate(corrections_path())))
+    })
+
     output$report_readiness <- shiny::renderUI({
       items <- build_readiness_items(
         rv$data_loaded, rv$ctd_loaded,
@@ -160,6 +167,15 @@ mod_report_server <- function(id, rv, config, phyto_groups_reactive = NULL) {
 
     shiny::observeEvent(input$make_report, {
       shiny::req(rv$data_loaded, rv$station_summary)
+
+      # Invalidate any previously generated report up front: if this run
+      # fails, the status text and download button must not keep serving the
+      # stale document as "ready" (a user could otherwise download a report
+      # that lacks their latest corrections). Delete the old files too so
+      # repeated generations don't accumulate in the process-wide tempdir.
+      unlink(c(report_path(), corrections_path()))
+      report_path(NULL)
+      corrections_path(NULL)
 
       shiny::withProgress(message = "Generating report...", value = 0, {
         tryCatch({
@@ -259,10 +275,11 @@ mod_report_server <- function(id, rv, config, phyto_groups_reactive = NULL) {
           # Generate report
           shiny::incProgress(0.2, detail = "Building Word document...")
 
-          out_file <- file.path(tempdir(),
-                                paste0("algaware_report_",
-                                       format(Sys.time(), "%Y%m%d_%H%M%S"),
-                                       ".docx"))
+          # tempfile() guarantees a unique path: tempdir() is shared by all
+          # sessions of the R process, and a timestamp-only name let two
+          # sessions generating in the same second overwrite each other's
+          # report (one user could download the other's document).
+          out_file <- tempfile("algaware_report_", fileext = ".docx")
 
           use_llm <- llm_available() && isTRUE(input$use_llm)
           selected_provider <- if (use_llm) {

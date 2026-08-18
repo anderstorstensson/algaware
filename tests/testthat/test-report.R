@@ -187,3 +187,36 @@ test_that("add_station_sections returns rdocx", {
   result <- algaware:::add_station_sections(doc, station_summary)
   expect_s3_class(result, "rdocx")
 })
+
+test_that("transform_ooxml_part preserves non-ASCII bytes regardless of locale", {
+  # Regression: text connections re-encoded the XML through the native locale,
+  # mangling Å/Ä/Ö and µ into literal escapes on non-UTF-8 hosts.
+  xml <- enc2utf8("<w:t>5 µm at Väderöarna, SLÄGGÖ – Å17</w:t><w:sectPr>")
+  path <- tempfile(fileext = ".xml")
+  on.exit(unlink(path), add = TRUE)
+  writeBin(charToRaw(xml), path)
+
+  run_roundtrip <- function() {
+    changed <- algaware:::transform_ooxml_part(path, function(text) {
+      sub("<w:sectPr>", '<w:pgNumType w:start="1"/><w:sectPr>', text,
+          fixed = TRUE)
+    })
+    expect_true(changed)
+    result <- rawToChar(readBin(path, "raw", file.size(path)))
+    Encoding(result) <- "UTF-8"
+    expect_identical(
+      result,
+      enc2utf8(paste0("<w:t>5 µm at Väderöarna, SLÄGGÖ – Å17</w:t>",
+                      '<w:pgNumType w:start="1"/><w:sectPr>'))
+    )
+  }
+
+  c_locale_ok <- !is.na(Sys.setlocale("LC_CTYPE", "C"))
+  Sys.setlocale("LC_CTYPE", "")
+  if (c_locale_ok) {
+    withr::with_locale(c(LC_CTYPE = "C"), run_roundtrip())
+    # Reset the file for the native-locale pass
+    writeBin(charToRaw(xml), path)
+  }
+  run_roundtrip()
+})

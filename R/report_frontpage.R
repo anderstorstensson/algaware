@@ -421,8 +421,13 @@ add_back_page <- function(doc, cleanup) {
 
 #' Read, transform, and rewrite an OOXML part as UTF-8
 #'
-#' OOXML is UTF-8; read and write parts as UTF-8 explicitly so station names
-#' with Å/Ä/Ö survive the round-trip on non-UTF-8 locales.
+#' OOXML is UTF-8; read and write the part as raw bytes and only mark the
+#' string as UTF-8 so the content never passes through the session's native
+#' locale. Text connections (\code{file(path, encoding = "UTF-8")}) re-encode
+#' to/from the native locale on read and write, which mangled every non-ASCII
+#' character (Å/Ä/Ö, µ, –) into literal escape sequences on non-UTF-8 hosts
+#' (e.g. servers running under a C/POSIX locale) — silently, since the .docx
+#' still opened fine in Word.
 #'
 #' @param path Path to the XML part.
 #' @param fun Function taking the file's text and returning the new text.
@@ -430,16 +435,11 @@ add_back_page <- function(doc, cleanup) {
 #' @keywords internal
 transform_ooxml_part <- function(path, fun) {
   if (!file.exists(path)) return(invisible(FALSE))
-  in_con <- file(path, encoding = "UTF-8")
-  on.exit(close(in_con), add = TRUE)
-  xml_text <- paste(readLines(in_con, warn = FALSE), collapse = "\n")
-  close(in_con)
-  on.exit(NULL)
+  xml_text <- rawToChar(readBin(path, "raw", file.size(path)))
+  Encoding(xml_text) <- "UTF-8"
   new_text <- fun(xml_text)
   if (identical(new_text, xml_text)) return(invisible(FALSE))
-  out_con <- file(path, encoding = "UTF-8")
-  writeLines(new_text, out_con)
-  close(out_con)
+  writeBin(charToRaw(enc2utf8(new_text)), path)
   invisible(TRUE)
 }
 

@@ -392,3 +392,23 @@ test_that("is_valid_extracted_png returns TRUE for a valid PNG", {
   result <- algaware:::is_valid_extracted_png(tmp)
   expect_true(result)
 })
+
+test_that("create_mosaic handles 1-3 images without crashing", {
+  # Regression: with <= 2 images the remaining-index range was computed with
+  # seq.int(n_top + 1, n), which counts backwards and fed NA sizes into
+  # rectpacker, segfaulting the R process.
+  paths <- vapply(1:3, function(i) {
+    path <- tempfile(fileext = ".png")
+    magick::image_write(magick::image_blank(40, 30, color = "white"), path)
+    path
+  }, character(1))
+  on.exit(unlink(paths), add = TRUE)
+
+  for (n in 1:3) {
+    result <- create_mosaic(paths[seq_len(n)], max_cols = Inf,
+                            allow_taller_rows = TRUE)
+    expect_s3_class(result, "magick-image")
+    result_default <- create_mosaic(paths[seq_len(n)])
+    expect_s3_class(result_default, "magick-image")
+  }
+})

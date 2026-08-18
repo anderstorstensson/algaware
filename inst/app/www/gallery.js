@@ -36,11 +36,16 @@ $(document).ready(function() {
   var selectionBox = null;
 
   // ============================================================================
-  // Image error handling (delegated -- no inline onerror needed)
+  // Image error handling. The DOM 'error' event does not bubble, so jQuery
+  // delegation never fires for it; listen in the capture phase instead so a
+  // 404'd ROI image shows its "Not found" placeholder.
   // ============================================================================
-  $(document).on('error', '.image-card img', function() {
-    $(this).hide().next('.image-placeholder').show();
-  });
+  document.addEventListener('error', function(e) {
+    var img = e.target;
+    if (img.tagName === 'IMG' && $(img).closest('.image-card').length) {
+      $(img).hide().next('.image-placeholder').show();
+    }
+  }, true);
 
   // ============================================================================
   // Measure Tool
@@ -166,6 +171,19 @@ $(document).ready(function() {
   // Selection (client-side visual state management)
   // ============================================================================
 
+  // Mirror of the server-side selection (rv$selected_images). The server
+  // pushes every change here via syncSelection; clicks and drag-selects also
+  // update it locally so highlights survive a re-render that happens before
+  // the server echo arrives.
+  var selectedIds = [];
+
+  function applySelection() {
+    $('.image-card').each(function() {
+      $(this).toggleClass('selected',
+                          selectedIds.indexOf($(this).data('img')) >= 0);
+    });
+  }
+
   // Single-click selection on image cards (toggle .selected class in JS)
   $(document).on('click', '.image-card', function(e) {
     if (measureMode) return;
@@ -175,22 +193,32 @@ $(document).ready(function() {
     }
     $(this).toggleClass('selected');
     var imgId = $(this).data('img');
+    if (selectedIds.indexOf(imgId) >= 0) {
+      selectedIds = selectedIds.filter(function(id) { return id !== imgId; });
+    } else {
+      selectedIds = selectedIds.concat([imgId]);
+    }
     Shiny.setInputValue('gallery-toggle_image',
       {img: imgId, time: new Date().getTime()},
       {priority: 'event'});
   });
 
-  // Sync selection state from server (for select-page, deselect-all)
+  // Sync selection state from server: fires on every rv$selected_images
+  // change (clicks echoed back, select-page, deselect-all, and clears done
+  // by the validation module after relabel/store-annotations).
   Shiny.addCustomMessageHandler('syncSelection', function(msg) {
-    var selected = msg.selected || [];
-    $('.image-card').each(function() {
-      var imgId = $(this).data('img');
-      if (selected.indexOf(imgId) >= 0) {
-        $(this).addClass('selected');
-      } else {
-        $(this).removeClass('selected');
-      }
-    });
+    selectedIds = msg.selected || [];
+    applySelection();
+  });
+
+  // Re-apply highlights after the gallery re-renders: renderUI replaces the
+  // DOM, wiping .selected classes even though the images are still selected
+  // server-side. shiny:value fires just before the output is swapped in, so
+  // defer with setTimeout until the new DOM exists.
+  $(document).on('shiny:value', function(e) {
+    if (e.name === 'gallery-image_gallery') {
+      setTimeout(applySelection, 0);
+    }
   });
 
   // Drag-select
@@ -257,6 +285,9 @@ $(document).ready(function() {
       });
 
       if (selected.length > 0) {
+        selectedIds = selectedIds.concat(selected.filter(function(id) {
+          return selectedIds.indexOf(id) < 0;
+        }));
         Shiny.setInputValue('gallery-drag_select',
           {images: selected, time: new Date().getTime()},
           {priority: 'event'});
@@ -265,5 +296,11 @@ $(document).ready(function() {
 
     selectionBox.remove();
     selectionBox = null;
+
+    // Clear the drag flag after this event cycle: the card click handler
+    // needs it to suppress the click that ends a drag over a card, but a
+    // drag that ends over empty space produces no card click, and a stuck
+    // flag would swallow the user's next single click on an image.
+    setTimeout(function() { wasDragging = false; }, 0);
   });
 });

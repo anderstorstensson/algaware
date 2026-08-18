@@ -26,7 +26,9 @@ deduplicate_casts <- function(ctd_data) {
 
   # Per file: max depth and its sample_date
   depth_per_file <- vapply(files, function(f) {
-    max(ctd_data$pressure_dbar[ctd_data$file_path == f], na.rm = TRUE)
+    p <- ctd_data$pressure_dbar[ctd_data$file_path == f]
+    p <- p[!is.na(p)]
+    if (length(p) == 0) -Inf else max(p)
   }, numeric(1L))
   date_per_file <- vapply(files, function(f) {
     as.character(ctd_data$sample_date[ctd_data$file_path == f][1L])
@@ -35,8 +37,15 @@ deduplicate_casts <- function(ctd_data) {
   meta <- data.frame(file_path = files, max_depth = depth_per_file,
                      sample_date = date_per_file, stringsAsFactors = FALSE)
 
-  # Per date: keep file with greatest depth, ties broken by filename order
-  keep <- unlist(lapply(split(meta, meta$sample_date), function(d) {
+  # Per date: keep file with greatest depth, ties broken by filename order.
+  # A file whose sample_date is NA (CNV without a parsable time) forms its
+  # own group keyed by file path: split() silently drops NA groups, which
+  # used to discard every such cast and make the station vanish from the
+  # CTD tab and report without warning.
+  grp <- ifelse(is.na(meta$sample_date),
+                paste0("na_date_", meta$file_path),
+                meta$sample_date)
+  keep <- unlist(lapply(split(meta, grp), function(d) {
     d <- d[order(-d$max_depth, d$file_path), ]
     d$file_path[1L]
   }))
@@ -433,6 +442,15 @@ create_ctd_region_figure <- function(ctd_data_full, lims_data_full = NULL,
 
   plots <- list()
 
+  # The x-axis is drawn only on the last panel, so "last" must be the last
+  # station that actually produces a panel -- not the last of the planned
+  # list, which may be skipped below (no casts after deduplication), leaving
+  # the whole figure without any x-axis labels.
+  plotted_stations <- Filter(function(s) {
+    s_ctd <- region_ctd[region_ctd$canonical_name == s, ]
+    nrow(s_ctd) > 0L && nrow(deduplicate_casts(s_ctd)) > 0L
+  }, stations)
+
   for (stn in stations) {
     stn_ctd <- region_ctd[region_ctd$canonical_name == stn, ]
     if (nrow(stn_ctd) == 0L) next
@@ -441,7 +459,7 @@ create_ctd_region_figure <- function(ctd_data_full, lims_data_full = NULL,
     stn_ctd <- deduplicate_casts(stn_ctd)
     if (nrow(stn_ctd) == 0L) next
 
-    is_last <- identical(stn, stations[length(stations)])
+    is_last <- identical(stn, plotted_stations[[length(plotted_stations)]])
 
     profile_dates <- sort(unique(stn_ctd$sample_date[
       !is.na(stn_ctd$sample_date)]))

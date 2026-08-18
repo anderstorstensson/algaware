@@ -41,26 +41,48 @@ create_group_map <- function(station_summary, phyto_groups, r_lat = 0.28) {
   )
 
   # Merge group assignments; unmatched taxa fall into "Other".
+  # `phyto_group` is the flat column callers now build (assign_phyto_groups
+  # returns a plain vector); `phyto_group.plankton_group` is the legacy nested
+  # shape from when the SHARK4R data frame was embedded directly.
+  if (!"phyto_group" %in% names(phyto_groups) &&
+      "phyto_group.plankton_group" %in% names(phyto_groups)) {
+    names(phyto_groups)[
+      names(phyto_groups) == "phyto_group.plankton_group"
+    ] <- "phyto_group"
+  }
   merged <- merge(
     station_summary,
-    phyto_groups[, c("name", "AphiaID", "phyto_group.plankton_group")],
+    phyto_groups[, c("name", "AphiaID", "phyto_group")],
     by    = c("name", "AphiaID"),
     all.x = TRUE
   )
-  names(merged)[names(merged) == "phyto_group.plankton_group"] <- "phyto_group"
   merged$phyto_group[is.na(merged$phyto_group)] <- "Other"
 
+  # Drop rows without coordinates (station absent from the SHARK register);
+  # they cannot be drawn and would otherwise be discarded silently.
+  merged <- merged[!is.na(merged$LATITUDE_WGS84_SWEREF99_DD) &
+                     !is.na(merged$LONGITUDE_WGS84_SWEREF99_DD), ,
+                   drop = FALSE]
+  if (nrow(merged) == 0) {
+    stop("No stations with coordinates to draw in the group map",
+         call. = FALSE)
+  }
+
   # Aggregate carbon biomass per station + group into the long format
-  # expected by create_pie_map().
+  # expected by create_pie_map(). na.action = na.pass keeps rows whose carbon
+  # is NA (e.g. missing sample volume): the default na.omit dropped the whole
+  # row before FUN ran, skewing group proportions despite na.rm = TRUE.
   long <- stats::aggregate(
     carbon_ug_per_liter ~
       STATION_NAME_SHORT + LATITUDE_WGS84_SWEREF99_DD +
       LONGITUDE_WGS84_SWEREF99_DD + phyto_group,
     data  = merged,
     FUN   = sum,
-    na.rm = TRUE
+    na.rm = TRUE,
+    na.action = stats::na.pass
   )
   names(long) <- c("station", "lat", "lon", "group", "value")
+  long <- long[!is.na(long$value) & long$value > 0, , drop = FALSE]
 
   SHARK4R::create_pie_map(
     long,

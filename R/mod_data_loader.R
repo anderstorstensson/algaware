@@ -252,6 +252,7 @@ resolve_classes <- function(config, taxa_lookup, classifications) {
 #' @param sample_times POSIXct vector of sample timestamps.
 #' @return Character string.
 #' @keywords internal
+#' @export
 build_cruise_info <- function(sample_times) {
   dates <- as.Date(sample_times)
   old_locale <- Sys.getlocale("LC_TIME")
@@ -268,12 +269,16 @@ build_cruise_info <- function(sample_times) {
 #'
 #' Strips the leading "Error in <call>: " prefix that R prepends to condition
 #' messages so that only the human-readable part is shown in the sidebar.
+#' Only that exact prefix is removed: the old greedy pattern (`"^.*: "`)
+#' stripped everything up to the *last* colon, reducing e.g.
+#' `cannot open URL 'https://...': HTTP status was '404 Not Found'` to just
+#' `'404 Not Found'` -- and this is the only error surface the app has.
 #'
 #' @param msg Character string (typically \code{e$message}).
 #' @return Simplified character string.
 #' @keywords internal
 sanitize_error_msg <- function(msg) {
-  sub("^.*: ", "", msg)
+  sub("^Error in [^:]*: ", "", msg)
 }
 
 #' Data Loader Module Server
@@ -369,7 +374,11 @@ mod_data_loader_server <- function(id, config, rv) {
             return()
           }
 
-          rv$matched_metadata <- matched
+          # Do NOT write `matched` into rv yet: everything below reads the
+          # local variable, and committing to rv before download/processing
+          # can fail would leave the app half-loaded (new cruise's metadata
+          # with the previous cruise's classifications). All rv writes happen
+          # together after processing succeeds.
           status(paste0("Matched ", nrow(matched), " bins to ",
                         length(unique(matched$STATION_NAME)), " stations."))
 

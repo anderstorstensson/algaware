@@ -29,7 +29,14 @@ test_that("sanitize_error_msg returns message unchanged when no colon-space", {
   expect_equal(sanitize_error_msg("no colon here"), "no colon here")
 })
 
-test_that("sanitize_error_msg handles multiple colons, keeps last segment", {
+test_that("sanitize_error_msg keeps messages with inner colons intact", {
+  # Only R's own "Error in <call>: " prefix is stripped; a greedy match
+  # used to cut everything up to the last colon, discarding the context
+  # (URL, failing operation) from the only error surface in the app.
   expect_equal(sanitize_error_msg("outer: inner: actual message"),
-               "actual message")
+               "outer: inner: actual message")
+  expect_equal(
+    sanitize_error_msg("Error in download(x): cannot open URL 'u': 404"),
+    "cannot open URL 'u': 404"
+  )
 })

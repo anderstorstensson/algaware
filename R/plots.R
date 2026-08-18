@@ -24,9 +24,30 @@ base_sweden_map <- function() {
 #'
 #' @param station_summary Aggregated station data from
 #'   \code{aggregate_station_data()}.
-#' @return A list with \code{biomass_map} and \code{chl_map} ggplot objects.
+#' @return A list with \code{biomass_map} and \code{chl_map} ggplot objects,
+#'   or \code{NULL} when no station has usable coordinates.
 #' @export
 create_biomass_maps <- function(station_summary) {
+  # Stations missing coordinates (e.g. an extra station absent from the SHARK
+  # register) cannot be drawn; drop them explicitly with a warning instead of
+  # letting aggregate() discard them silently.
+  has_coords <- !is.na(station_summary$LATITUDE_WGS84_SWEREF99_DD) &
+    !is.na(station_summary$LONGITUDE_WGS84_SWEREF99_DD)
+  if (any(!has_coords)) {
+    warning("Dropping station(s) without coordinates from the biomass map: ",
+            paste(unique(station_summary$STATION_NAME_SHORT[!has_coords]),
+                  collapse = ", "),
+            call. = FALSE)
+    station_summary <- station_summary[has_coords, , drop = FALSE]
+  }
+  if (nrow(station_summary) == 0) {
+    return(NULL)
+  }
+
+  # na.action = na.pass keeps rows whose carbon or biovolume is NA (e.g. a
+  # missing feature file): the default na.omit dropped the whole row before
+  # FUN ran, under-reporting sums despite na.rm = TRUE, and errored with
+  # "no rows to aggregate" when every row carried an NA.
   station_biomass <- stats::aggregate(
     cbind(total_carbon_biomass = carbon_ug_per_liter,
           total_biovolume = biovolume_mm3_per_liter) ~
@@ -34,7 +55,8 @@ create_biomass_maps <- function(station_summary) {
       LONGITUDE_WGS84_SWEREF99_DD + median_time,
     data = station_summary,
     FUN = sum,
-    na.rm = TRUE
+    na.rm = TRUE,
+    na.action = stats::na.pass
   )
 
   # Add chlorophyll if available. Use na.action = na.pass so stations whose
@@ -174,10 +196,23 @@ create_image_count_map <- function(image_counts, legend_position = "right",
     as.expression(labs)
   }
 
+  # Normalise per sample and drop only the samples lacking a valid analysed
+  # volume. A single bad sample used to flip the *entire* map to raw image
+  # counts, which are not comparable across samples with different volumes.
+  # Raw counts remain the fallback only when no sample has a usable volume.
   plot_data <- image_counts
-  if ("ml_analyzed" %in% names(plot_data) &&
-      all(!is.na(plot_data$ml_analyzed)) &&
-      all(plot_data$ml_analyzed > 0)) {
+  valid_ml <- if ("ml_analyzed" %in% names(plot_data)) {
+    !is.na(plot_data$ml_analyzed) & plot_data$ml_analyzed > 0
+  } else {
+    rep(FALSE, nrow(plot_data))
+  }
+  if (any(valid_ml)) {
+    if (any(!valid_ml)) {
+      warning(sum(!valid_ml),
+              " sample(s) lack a valid analysed volume and are not shown ",
+              "in the image concentration map", call. = FALSE)
+      plot_data <- plot_data[valid_ml, , drop = FALSE]
+    }
     plot_data$images_per_liter <- plot_data$n_images /
       (plot_data$ml_analyzed / 1000)
     # Two-line label keeps the colorbar title within the legend column width

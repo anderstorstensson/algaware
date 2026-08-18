@@ -48,7 +48,12 @@ load_phyto_group_config <- function() {
 #' @param scientific_names Character vector of scientific names.
 #' @param aphia_ids Integer vector of AphiaIDs (same length), or \code{NULL}.
 #' @param verbose Passed to \code{SHARK4R::assign_phytoplankton_group()}.
-#' @return Return value of \code{SHARK4R::assign_phytoplankton_group()}.
+#' @return Character vector of group names, one per element of
+#'   \code{scientific_names}; unresolved taxa are \code{"Other"}. (The raw
+#'   \code{SHARK4R::assign_phytoplankton_group()} data frame is not returned:
+#'   its \code{left_join} shape leaked into callers as nested
+#'   \code{phyto_group.*} columns and could drop or duplicate rows, so it is
+#'   realigned to the input here.)
 #' @export
 assign_phyto_groups <- function(scientific_names, aphia_ids = NULL,
                                 verbose = FALSE) {
@@ -58,7 +63,7 @@ assign_phyto_groups <- function(scientific_names, aphia_ids = NULL,
   dino_cfg    <- cfg$core[["dinoflagellates"]]
   cyano_cfg   <- cfg$core[["cyanobacteria"]]
 
-  SHARK4R::assign_phytoplankton_group(
+  result <- SHARK4R::assign_phytoplankton_group(
     scientific_names     = scientific_names,
     aphia_ids            = aphia_ids,
     diatom_class         = diatom_cfg[["class"]]   %||% character(0),
@@ -68,6 +73,10 @@ assign_phyto_groups <- function(scientific_names, aphia_ids = NULL,
     custom_groups        = cfg$custom,
     verbose              = verbose
   )
+
+  groups <- result$plankton_group[match(scientific_names,
+                                        result$scientific_name)]
+  ifelse(is.na(groups), "Other", groups)
 }
 
 #' Load the bundled taxa lookup table

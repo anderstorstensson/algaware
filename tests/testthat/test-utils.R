@@ -121,6 +121,47 @@ test_that("load_settings merges saved values over defaults", {
   expect_equal(result$pixels_per_micron, 2.77)
 })
 
+test_that("extra_stations survive a save/load roundtrip as a list of lists", {
+  tmp_dir <- file.path(tempdir(), paste0("test_extra_", Sys.getpid()))
+  dir.create(tmp_dir, recursive = TRUE, showWarnings = FALSE)
+  on.exit(unlink(tmp_dir, recursive = TRUE), add = TRUE)
+
+  settings_path <- file.path(tmp_dir, "settings.json")
+  mockery::stub(save_settings, "get_settings_path", settings_path)
+  mockery::stub(load_settings, "get_settings_path", settings_path)
+
+  s <- algaware:::default_settings()
+  s$extra_stations <- list(
+    list(STATION_NAME = "BY31 LANDSORTSDJ", COAST = "EAST",
+         STATION_NAME_SHORT = "BY31"),
+    list(STATION_NAME = "SLÄGGÖ", COAST = "WEST",
+         STATION_NAME_SHORT = "SLÄGGÖ")
+  )
+  save_settings(s)
+  loaded <- load_settings()
+
+  expect_false(is.data.frame(loaded$extra_stations))
+  expect_length(loaded$extra_stations, 2)
+  expect_equal(loaded$extra_stations[[1]]$STATION_NAME, "BY31 LANDSORTSDJ")
+  expect_equal(loaded$extra_stations[[2]]$COAST, "WEST")
+
+  # The loaded value must be consumable by load_algaware_stations()
+  stations <- load_algaware_stations(loaded$extra_stations)
+  expect_true("BY31 LANDSORTSDJ" %in% stations$STATION_NAME)
+})
+
+test_that("normalize_extra_stations recovers a data.frame shape", {
+  df <- data.frame(STATION_NAME = c("A", "B"), COAST = c("EAST", "WEST"),
+                   STATION_NAME_SHORT = c("A", "B"), stringsAsFactors = FALSE)
+  result <- algaware:::normalize_extra_stations(df)
+  expect_false(is.data.frame(result))
+  expect_length(result, 2)
+  expect_equal(result[[2]]$STATION_NAME, "B")
+
+  expect_equal(algaware:::normalize_extra_stations(NULL), list())
+  expect_equal(algaware:::normalize_extra_stations(list()), list())
+})
+
 test_that("load_settings handles corrupt JSON gracefully", {
   tmp_dir <- file.path(tempdir(), paste0("test_corrupt_", Sys.getpid()))
   dir.create(tmp_dir, recursive = TRUE, showWarnings = FALSE)

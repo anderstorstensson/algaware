@@ -9,6 +9,22 @@ get_db_path <- function(db_folder) {
   file.path(db_folder, "annotations.sqlite")
 }
 
+#' Open a connection to an annotations database
+#'
+#' Sets a busy timeout so a concurrent writer (e.g. ClassiPyR holding a
+#' short write lock on the shared database) makes us wait briefly instead
+#' of failing immediately with "database is locked".
+#'
+#' @param db_path Path to the SQLite database file.
+#' @return A DBI connection object.
+#' @keywords internal
+connect_annotations_db <- function(db_path) {
+  con <- DBI::dbConnect(RSQLite::SQLite(), db_path)
+  tryCatch(DBI::dbExecute(con, "PRAGMA busy_timeout = 5000"),
+           error = function(e) NULL)
+  con
+}
+
 #' Initialize the annotations database schema
 #'
 #' Creates tables compatible with ClassiPyR's schema.
@@ -97,11 +113,14 @@ save_annotations_db <- function(db_path, annotations, annotator = "",
   }
 
   dir.create(dirname(db_path), recursive = TRUE, showWarnings = FALSE)
-  con <- DBI::dbConnect(RSQLite::SQLite(), db_path)
+  con <- connect_annotations_db(db_path)
   on.exit(DBI::dbDisconnect(con), add = TRUE)
-  init_db_schema(con)
 
   tryCatch({
+    # DDL inside the tryCatch: on a read-only or locked database it throws,
+    # and outside the handler that error would escape to the caller instead
+    # of returning FALSE as documented.
+    init_db_schema(con)
     DBI::dbExecute(con, "BEGIN TRANSACTION")
 
     # Upsert annotations: INSERT OR REPLACE inserts new rows or overwrites
@@ -167,18 +186,31 @@ load_annotations_db <- function(db_path, sample_names = NULL) {
                       stringsAsFactors = FALSE))
   }
 
-  con <- DBI::dbConnect(RSQLite::SQLite(), db_path)
+  con <- connect_annotations_db(db_path)
   on.exit(DBI::dbDisconnect(con), add = TRUE)
-  init_db_schema(con)
 
-  if (!is.null(sample_names) && length(sample_names) > 0) {
-    placeholders <- paste(rep("?", length(sample_names)), collapse = ", ")
-    query <- paste0("SELECT * FROM annotations WHERE sample_name IN (",
-                    placeholders, ")")
-    DBI::dbGetQuery(con, query, params = as.list(sample_names))
-  } else {
-    DBI::dbGetQuery(con, "SELECT * FROM annotations")
-  }
+  # Read-only path: no DDL. Running init_db_schema() here failed outright on
+  # a read-only or locked database, aborting the caller instead of degrading
+  # to "no annotations". A database without the expected table lands in the
+  # error handler below.
+  tryCatch({
+    if (!is.null(sample_names) && length(sample_names) > 0) {
+      placeholders <- paste(rep("?", length(sample_names)), collapse = ", ")
+      query <- paste0("SELECT * FROM annotations WHERE sample_name IN (",
+                      placeholders, ")")
+      DBI::dbGetQuery(con, query, params = as.list(sample_names))
+    } else {
+      DBI::dbGetQuery(con, "SELECT * FROM annotations")
+    }
+  }, error = function(e) {
+    warning("Failed to load annotations: ", e$message, call. = FALSE)
+    data.frame(sample_name = character(0),
+               roi_number = integer(0),
+               class_name = character(0),
+               annotator = character(0),
+               timestamp = character(0),
+               stringsAsFactors = FALSE)
+  })
 }
 
 #' Save global class list to SQLite
@@ -196,11 +228,11 @@ save_global_class_list_db <- function(db_path, class2use) {
   }
 
   dir.create(dirname(db_path), recursive = TRUE, showWarnings = FALSE)
-  con <- DBI::dbConnect(RSQLite::SQLite(), db_path)
+  con <- connect_annotations_db(db_path)
   on.exit(DBI::dbDisconnect(con), add = TRUE)
-  init_db_schema(con)
 
   tryCatch({
+    init_db_schema(con)
     DBI::dbExecute(con, "BEGIN TRANSACTION")
     DBI::dbExecute(con, "DELETE FROM global_class_list")
     for (i in seq_along(class2use)) {
@@ -232,10 +264,13 @@ load_global_class_list_db <- function(db_path) {
     return(NULL)
   }
 
-  con <- DBI::dbConnect(RSQLite::SQLite(), db_path)
+  con <- connect_annotations_db(db_path)
   on.exit(DBI::dbDisconnect(con), add = TRUE)
-  init_db_schema(con)
 
+  # Read-only path: no DDL (see load_annotations_db). init_db_schema() here
+  # ran before the tryCatch, so a read-only or locked database aborted the
+  # entire cruise load instead of falling back to the auto-generated class
+  # list. A database without the table lands in the error handler.
   tryCatch({
     df <- DBI::dbGetQuery(con,
       "SELECT class_name FROM global_class_list ORDER BY class_index")

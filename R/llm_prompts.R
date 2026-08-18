@@ -102,14 +102,21 @@ build_station_group_summary <- function(station_data, group_col, heading,
     return("")
   }
 
+  # Drop NA rows before aggregating: with the default na.action a station
+  # whose biovolumes are all NA (missing sample volume) errored with
+  # "no rows to aggregate" and lost its description entirely.
+  df <- data.frame(
+    group = station_data[[group_col]],
+    biovolume_mm3_per_liter = station_data$biovolume_mm3_per_liter
+  )
+  df <- df[!is.na(df$group) & !is.na(df$biovolume_mm3_per_liter), ,
+           drop = FALSE]
+  if (nrow(df) == 0) return("")
+
   totals <- stats::aggregate(
     biovolume_mm3_per_liter ~ group,
-    data = data.frame(
-      group = station_data[[group_col]],
-      biovolume_mm3_per_liter = station_data$biovolume_mm3_per_liter
-    ),
-    FUN = sum,
-    na.rm = TRUE
+    data = df,
+    FUN = sum
   )
   totals <- totals[totals$biovolume_mm3_per_liter > 0, , drop = FALSE]
   if (nrow(totals) == 0) return("")
@@ -239,7 +246,10 @@ format_station_data_for_prompt <- function(station_data, taxa_lookup = NULL,
     warn_flag <- ""
     if (row$display_name %in% names(warning_thresholds)) {
       thresh <- warning_thresholds[[row$display_name]]
-      if (!is.na(thresh) && row$counts_per_liter >= thresh) {
+      # counts_per_liter is NA when the sample volume is missing; without the
+      # guard the comparison errored and the station description was lost.
+      if (!is.na(thresh) && !is.na(row$counts_per_liter) &&
+          row$counts_per_liter >= thresh) {
         warn_flag <- sprintf(" [WARNING: %.0f cells/L, threshold %.0f cells/L]",
                              row$counts_per_liter, thresh)
       }
@@ -249,10 +259,21 @@ format_station_data_for_prompt <- function(station_data, taxa_lookup = NULL,
     } else {
       "0%"
     }
-    sprintf("  %s%s%s: %.3f mm3/L (%s of total), %.0f counts/L",
-            row$display_name, hab_flag, warn_flag,
-            row$biovolume_mm3_per_liter, pct,
-            row$counts_per_liter)
+    # Spell out missing values: interpolating a literal "NA counts/L" gives
+    # the LLM no signal that the value is missing, inviting it to narrate
+    # (or invent) abundances that were never measured.
+    bv_txt <- if (is.na(row$biovolume_mm3_per_liter)) {
+      "biovolume not available"
+    } else {
+      sprintf("%.3f mm3/L (%s of total)", row$biovolume_mm3_per_liter, pct)
+    }
+    counts_txt <- if (is.na(row$counts_per_liter)) {
+      "counts/L not available (sample volume missing) - do not report abundance"
+    } else {
+      sprintf("%.0f counts/L", row$counts_per_liter)
+    }
+    sprintf("  %s%s%s: %s, %s",
+            row$display_name, hab_flag, warn_flag, bv_txt, counts_txt)
   }, character(1))
 
   # Additional HAB species in lower abundances (not in top_n)
@@ -423,14 +444,19 @@ format_cruise_summary_for_prompt <- function(station_summary, taxa_lookup = NULL
     }
 
     summarize_groups <- function(group_col, label) {
+      # Same NA handling as build_station_group_summary(): an all-NA station
+      # would otherwise abort with "no rows to aggregate".
+      df <- data.frame(
+        group = sdata[[group_col]],
+        biovolume_mm3_per_liter = sdata$biovolume_mm3_per_liter
+      )
+      df <- df[!is.na(df$group) & !is.na(df$biovolume_mm3_per_liter), ,
+               drop = FALSE]
+      if (nrow(df) == 0) return("")
       group_totals <- stats::aggregate(
         biovolume_mm3_per_liter ~ group,
-        data = data.frame(
-          group = sdata[[group_col]],
-          biovolume_mm3_per_liter = sdata$biovolume_mm3_per_liter
-        ),
-        FUN = sum,
-        na.rm = TRUE
+        data = df,
+        FUN = sum
       )
       group_totals <- group_totals[group_totals$biovolume_mm3_per_liter > 0, ,
                                    drop = FALSE]
