@@ -6,6 +6,10 @@
   time (off-by-one column index), which scrambled the cruise-track order.
 - The red-asterisk HAB legend in the report introduction is now printed only
   when a HAB-flagged taxon actually appears in the report.
+- Selecting a cruise against dashboard metadata that has no cruise column
+  now raises a clear error instead of silently returning (and downloading)
+  the entire unfiltered dataset; rows with missing cruise or timestamp are
+  dropped instead of appearing as phantom all-NA rows.
 - Fix extra stations added in Settings permanently breaking the app on the
   next restart: the settings loader turned the saved station list into a
   data frame, crashing data loading and the Settings tab with "$ operator is

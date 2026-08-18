@@ -91,8 +91,17 @@ fetch_dashboard_metadata <- function(dashboard_url, dataset_name = NULL) {
 #' @return Filtered metadata data.frame.
 #' @export
 filter_metadata <- function(metadata, cruise = NULL, date_from = NULL, date_to = NULL) {
-  if (!is.null(cruise) && nzchar(cruise) && "cruise" %in% names(metadata)) {
-    return(metadata[metadata$cruise == cruise, ])
+  if (!is.null(cruise) && nzchar(cruise)) {
+    # A requested cruise against metadata without a cruise column used to
+    # fall through and return the ENTIRE unfiltered dataset, downloading
+    # the whole archive instead of one cruise. Fail loudly instead.
+    if (!"cruise" %in% names(metadata)) {
+      stop("Cruise '", cruise, "' requested, but the dashboard metadata ",
+           "has no cruise column. Use a date range instead.", call. = FALSE)
+    }
+    # %in% (unlike ==) is NA-safe: rows with a missing cruise are dropped
+    # rather than injected as phantom all-NA rows.
+    return(metadata[metadata$cruise %in% cruise, ])
   }
 
   if (!is.null(date_from) && !is.null(date_to)) {
@@ -101,7 +110,9 @@ filter_metadata <- function(metadata, cruise = NULL, date_from = NULL, date_to =
     sample_dates <- as.Date(metadata[[time_col]])
     date_from <- as.Date(date_from)
     date_to <- as.Date(date_to)
-    return(metadata[sample_dates >= date_from & sample_dates <= date_to, ])
+    keep <- !is.na(sample_dates) &
+      sample_dates >= date_from & sample_dates <= date_to
+    return(metadata[keep, ])
   }
 
   metadata

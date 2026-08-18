@@ -492,3 +492,26 @@ test_that("copy_classification_files works when root is already a year dir", {
     file.path(tmp_dest, "D20260107T222955_IFCB134_class.h5")
   ))
 })
+
+test_that("filter_metadata errors when cruise column is missing", {
+  # Regression: a requested cruise against metadata without a cruise column
+  # silently returned the entire unfiltered dataset.
+  metadata <- data.frame(pid = c("a", "b"), stringsAsFactors = FALSE)
+  expect_error(filter_metadata(metadata, cruise = "C001"), "no cruise column")
+})
+
+test_that("filter_metadata drops NA cruise and NA date rows", {
+  metadata <- data.frame(
+    pid = c("a", "b", "c"),
+    cruise = c("C001", NA, "C002"),
+    sample_time = as.POSIXct(c("2022-01-05 10:00", NA, "2022-01-20 10:00"),
+                             tz = "UTC"),
+    stringsAsFactors = FALSE
+  )
+  by_cruise <- filter_metadata(metadata, cruise = "C001")
+  expect_equal(by_cruise$pid, "a")
+
+  by_date <- filter_metadata(metadata, date_from = "2022-01-01",
+                             date_to = "2022-01-31")
+  expect_equal(by_date$pid, c("a", "c"))
+})
