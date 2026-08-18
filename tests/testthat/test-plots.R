@@ -193,3 +193,63 @@ test_that("create_heatmap handles no HAB taxa", {
   expect_s3_class(p, "ggplot")
   expect_null(p$labels$caption)
 })
+
+test_that("order_taxa_by_group sorts by group then alphabetically", {
+  groups <- data.frame(
+    name = c("Skeletonema", "Dinophysis", "Aphanizomenon", "Chaetoceros"),
+    phyto_group = c("Diatoms", "Dinoflagellates", "Cyanobacteria", "Diatoms"),
+    stringsAsFactors = FALSE
+  )
+  result <- algaware:::order_taxa_by_group(
+    c("Dinophysis", "Skeletonema", "Unknown thing", "Aphanizomenon",
+      "Chaetoceros"),
+    groups
+  )
+  expect_equal(result, c("Chaetoceros", "Skeletonema",   # Diatoms, A->Z
+                         "Dinophysis",                   # Dinoflagellates
+                         "Aphanizomenon",                # Cyanobacteria
+                         "Unknown thing"))               # Other last
+})
+
+test_that("order_taxa_by_group matches names carrying an sflag suffix", {
+  groups <- data.frame(
+    name = c("Chaetoceros", "Tripos"),
+    phyto_group = c("Diatoms", "Dinoflagellates"),
+    stringsAsFactors = FALSE
+  )
+  result <- algaware:::order_taxa_by_group(
+    c("Tripos spp.", "Chaetoceros spp."), groups
+  )
+  expect_equal(result, c("Chaetoceros spp.", "Tripos spp."))
+})
+
+test_that("create_heatmap orders taxa by group when phyto_groups given", {
+  wide <- data.frame(
+    scientific_name = c("Dinophysis", "Skeletonema", "Aphanizomenon"),
+    `STN1_2022-01-01` = c(100, 1, 10),
+    check.names = FALSE,
+    stringsAsFactors = FALSE
+  )
+  groups <- data.frame(
+    name = c("Dinophysis", "Skeletonema", "Aphanizomenon"),
+    phyto_group = c("Dinoflagellates", "Diatoms", "Cyanobacteria"),
+    stringsAsFactors = FALSE
+  )
+  p <- create_heatmap(wide, phyto_groups = groups, title = "Test")
+  expect_s3_class(p, "ggplot")
+  # Factor levels run bottom-to-top: Diatoms must be the LAST level (top row)
+  y_levels <- levels(p$data$scientific_name)
+  expect_equal(y_levels, c("Aphanizomenon", "Dinophysis", "Skeletonema"))
+})
+
+test_that("create_heatmap keeps biovolume ordering without phyto_groups", {
+  wide <- data.frame(
+    scientific_name = c("Low", "High"),
+    `STN1_2022-01-01` = c(1, 100),
+    check.names = FALSE,
+    stringsAsFactors = FALSE
+  )
+  p <- create_heatmap(wide, title = "Test")
+  expect_s3_class(p, "ggplot")
+  expect_equal(levels(p$data$scientific_name), c("High", "Low"))
+})

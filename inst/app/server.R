@@ -386,13 +386,15 @@ server <- function(input, output, session) {
   output$baltic_heatmap <- renderPlot({
     req(rv$baltic_wide, ncol(rv$baltic_wide) > 1)
     create_heatmap(rv$baltic_wide, taxa_lookup = rv$taxa_lookup,
-                   title = "Baltic Sea")
+                   title = "Baltic Sea",
+                   phyto_groups = phyto_group_assignments())
   })
 
   output$westcoast_heatmap <- renderPlot({
     req(rv$westcoast_wide, ncol(rv$westcoast_wide) > 1)
     create_heatmap(rv$westcoast_wide, taxa_lookup = rv$taxa_lookup,
-                   title = "West Coast")
+                   title = "West Coast",
+                   phyto_groups = phyto_group_assignments())
   })
 
   # Stacked bar charts

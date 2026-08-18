@@ -177,3 +177,56 @@ test_that("deduplicate_casts tolerates all-NA pressure for a file", {
   # The file with real depths wins the per-date dedup
   expect_equal(unique(result$file_path), "b.cnv")
 })
+
+# -- compute_profile_xlim ------------------------------------------------------
+
+test_that("compute_profile_xlim uses fixed 0-10 scale for typical values", {
+  ctd <- data.frame(
+    chl_fluorescence = c(1.2, 4.5, 8.9),
+    pressure_dbar    = c(5, 10, 20),
+    sample_date      = as.Date("2026-04-01")
+  )
+  expect_equal(algaware:::compute_profile_xlim(ctd), c(0, 10))
+})
+
+test_that("compute_profile_xlim grows dynamically when CTD exceeds 10", {
+  ctd <- data.frame(
+    chl_fluorescence = c(2, 14),
+    pressure_dbar    = c(5, 10),
+    sample_date      = as.Date("2026-04-01")
+  )
+  expect_equal(algaware:::compute_profile_xlim(ctd), c(0, 14 * 1.05))
+})
+
+test_that("compute_profile_xlim ignores CTD values deeper than 50 m", {
+  ctd <- data.frame(
+    chl_fluorescence = c(3, 25),
+    pressure_dbar    = c(5, 60),
+    sample_date      = as.Date("2026-04-01")
+  )
+  expect_equal(algaware:::compute_profile_xlim(ctd), c(0, 10))
+})
+
+test_that("compute_profile_xlim includes same-cruise bottle CPHL", {
+  ctd <- data.frame(
+    chl_fluorescence = c(2, 3),
+    pressure_dbar    = c(5, 10),
+    sample_date      = as.Date("2026-04-01")
+  )
+  lims <- data.frame(
+    CPHL        = c(12, 40),
+    DEPH        = c(10, 10),
+    sample_date = as.Date(c("2026-04-01", "2025-01-01"))
+  )
+  # 40 is from another cruise date and must not affect the scale
+  expect_equal(algaware:::compute_profile_xlim(ctd, lims), c(0, 12 * 1.05))
+})
+
+test_that("compute_profile_xlim falls back to 0-10 for all-NA data", {
+  ctd <- data.frame(
+    chl_fluorescence = c(NA_real_, NA_real_),
+    pressure_dbar    = c(5, NA),
+    sample_date      = as.Date(c(NA, NA))
+  )
+  expect_equal(algaware:::compute_profile_xlim(ctd), c(0, 10))
+})

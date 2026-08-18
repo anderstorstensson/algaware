@@ -8,7 +8,8 @@ create_heatmap(
   wide_summary,
   taxa_lookup = NULL,
   title = "",
-  sample_counts = NULL
+  sample_counts = NULL,
+  phyto_groups = NULL
 )
 }
 \arguments{
@@ -22,6 +23,11 @@ provided, HAB species are annotated with a red asterisk on the y-axis.}
 \item{sample_counts}{Optional named integer vector mapping station_date
 column names to number of samples. If provided, \code{n = X} is appended
 to each x-axis label.}
+
+\item{phyto_groups}{Optional data frame with columns \code{name} and
+\code{phyto_group} (as built from \code{assign_phyto_groups()}). If
+provided, taxa are ordered by phytoplankton group and alphabetically
+within each group; otherwise by total biovolume (descending).}
 }
 \value{
 A ggplot object.

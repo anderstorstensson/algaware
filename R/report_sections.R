@@ -55,13 +55,15 @@ build_sample_counts <- function(station_summary) {
 #' Add a heatmap section to the report (own page)
 #' @keywords internal
 add_heatmap_section <- function(doc, wide_data, taxa_lookup, title,
-                                fig_num, cleanup, sample_counts = NULL) {
+                                fig_num, cleanup, sample_counts = NULL,
+                                phyto_groups = NULL) {
   if (nrow(wide_data) > 0 && ncol(wide_data) > 1) {
     doc <- officer::body_add_break(doc)
     doc <- officer::body_add_par(doc, paste(title, "- Biovolume heatmap"),
                                  style = "heading 2")
     hm <- create_heatmap(wide_data, taxa_lookup = taxa_lookup,
-                          sample_counts = sample_counts)
+                          sample_counts = sample_counts,
+                          phyto_groups = phyto_groups)
     hm_file <- tempfile(fileext = ".png")
     hm_height <- max(4, min(12, nrow(wide_data) * 0.25 + 2))
     ggplot2::ggsave(hm_file, hm, width = 8, height = hm_height, dpi = 300)

@@ -434,12 +434,14 @@ generate_report <- function(output_path, station_summary,
   # Regions are ordered West Coast first, then Baltic Sea, to match the order
   # used in the summary/abstract and across all other report sections.
   result <- add_heatmap_section(doc, westcoast_wide, taxa_lookup, "West Coast",
-                                fig_num, cleanup, sample_counts)
+                                fig_num, cleanup, sample_counts,
+                                phyto_groups = phyto_groups)
   doc <- result$doc
   fig_num <- result$fig_num
 
   result <- add_heatmap_section(doc, baltic_wide, taxa_lookup, "Baltic Sea",
-                                fig_num, cleanup, sample_counts)
+                                fig_num, cleanup, sample_counts,
+                                phyto_groups = phyto_groups)
   doc <- result$doc
   fig_num <- result$fig_num
 
