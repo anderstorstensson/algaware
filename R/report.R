@@ -209,9 +209,15 @@ generate_report <- function(output_path, station_summary,
       if (use_llm) " Report text was drafted with the assistance of a large language model." else NULL
     ), collapse = "")
   )
+  # Only promise the asterisk legend when a HAB-flagged taxon actually
+  # appears in this report. Checking the whole lookup (130 of 180 bundled
+  # rows are HAB-flagged) printed the legend on every report, including
+  # cruises where no asterisk appears anywhere in the document.
+  report_taxa <- unique(station_summary$name)
   has_hab <- !is.null(taxa_lookup) &&
     "HAB" %in% names(taxa_lookup) &&
-    any(taxa_lookup$HAB == TRUE, na.rm = TRUE)
+    any(taxa_lookup$HAB[taxa_lookup$name %in% report_taxa] == TRUE,
+        na.rm = TRUE)
 
   normal_prop <- officer::fp_text(font.size = 11,
                                   font.family = "Adobe Garamond Pro")
