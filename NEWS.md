@@ -114,6 +114,11 @@
   aggregate" error, and missing counts/biovolume values are now spelled out
   as "not available" in the prompt instead of a literal "NA", which gave the
   model no signal that the value was missing.
+- Fix a read-only or locked annotations database aborting the whole cruise
+  load: read paths no longer run schema DDL and degrade gracefully (empty
+  annotations / auto-generated class list, with a warning). All database
+  connections now set a 5-second busy timeout so brief write locks from
+  ClassiPyR wait instead of failing immediately.
 
 - Fix a crash ("could not find function `build_cruise_info`") when excluding
   a sample in the installed app: the helper is now exported so
