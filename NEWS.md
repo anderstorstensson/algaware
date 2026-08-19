@@ -2,6 +2,16 @@
 
 ## Minor improvements and fixes
 
+- CTD fluorescence profiles now use a fixed 0-10 µg/L chlorophyll scale
+  shared by all basins so profiles are directly comparable. Only when any
+  value (CTD fluorescence or same-cruise bottle Chl-a, 0-50 m) exceeds
+  10 µg/L does the scale grow dynamically, and that scale is then inherited
+  by every region figure.
+- Heatmap taxa are now ordered by phytoplankton group (Diatoms,
+  Dinoflagellates, Cyanobacteria, etc.) and alphabetically within each
+  group, instead of by total biovolume, in both the app and the report.
+  Biovolume contribution is still shown in the stacked bar charts. When
+  group assignments are unavailable the previous biovolume ordering is used.
 - Fix the Samples table opening sorted by ROI file size instead of sample
   time (off-by-one column index), which scrambled the cruise-track order.
 - The red-asterisk HAB legend in the report introduction is now printed only
