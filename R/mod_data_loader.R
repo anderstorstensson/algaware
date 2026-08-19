@@ -281,6 +281,91 @@ sanitize_error_msg <- function(msg) {
   sub("^Error in [^:]*: ", "", msg)
 }
 
+#' Detect near-empty bins (possible cleaning-cycle samples)
+#'
+#' At the end of a cruise the IFCB runs a cleaning cycle in which it pulls
+#' distilled water. When that coincides with a station on the AlgAware list,
+#' the resulting bins contain almost no images and should usually be excluded
+#' from the report. A bin is flagged when its image count is below the
+#' absolute threshold \code{min_images}. The threshold is deliberately
+#' strict: legitimate bins can be small (e.g. few cells on the west coast
+#' while the Baltic blooms), so a relative/median-based criterion would
+#' produce false positives. Only truly near-empty distilled-water bins
+#' should be caught.
+#'
+#' @param matched Data frame of station-matched metadata. Requires \code{pid}
+#'   and \code{n_images} columns; \code{STATION_NAME} is used when present.
+#' @param min_images Absolute threshold: bins with fewer images are flagged.
+#' @return Data frame with \code{pid}, \code{STATION_NAME}, and
+#'   \code{n_images} for flagged bins, sorted by image count (ascending).
+#'   Empty when nothing is flagged or when no usable image counts exist.
+#' @keywords internal
+detect_near_empty_bins <- function(matched, min_images = 20) {
+  empty <- data.frame(pid = character(0), STATION_NAME = character(0),
+                      n_images = numeric(0), stringsAsFactors = FALSE)
+  if (is.null(matched) || nrow(matched) == 0 ||
+      !all(c("pid", "n_images") %in% names(matched))) {
+    return(empty)
+  }
+
+  n_images <- suppressWarnings(as.numeric(matched$n_images))
+  flagged <- !is.na(n_images) & n_images < min_images
+  if (!any(flagged)) return(empty)
+
+  station <- if ("STATION_NAME" %in% names(matched)) {
+    as.character(matched$STATION_NAME)
+  } else {
+    rep(NA_character_, nrow(matched))
+  }
+
+  out <- data.frame(
+    pid = as.character(matched$pid)[flagged],
+    STATION_NAME = station[flagged],
+    n_images = n_images[flagged],
+    stringsAsFactors = FALSE
+  )
+  out[order(out$n_images), , drop = FALSE]
+}
+
+#' Build the persistent near-empty-bin warning UI
+#'
+#' @param near_empty Data frame from \code{detect_near_empty_bins()}.
+#' @param max_listed Maximum number of bins to list individually; the rest
+#'   are summarized as "+ n more".
+#' @return A \code{shiny::tagList} for use in \code{showNotification()}.
+#' @keywords internal
+build_near_empty_warning <- function(near_empty, max_listed = 10) {
+  n <- nrow(near_empty)
+  listed <- utils::head(near_empty, max_listed)
+  lines <- paste0(
+    listed$pid,
+    ifelse(is.na(listed$STATION_NAME) | !nzchar(listed$STATION_NAME), "",
+           paste0(" (", listed$STATION_NAME, ")")),
+    ": ", listed$n_images, " images"
+  )
+  n_more <- n - nrow(listed)
+
+  shiny::tagList(
+    shiny::strong(paste0(
+      n, " near-empty bin", if (n > 1) "s", " detected"
+    )),
+    shiny::p(
+      style = "margin: 4px 0;",
+      "These may be IFCB cleaning-cycle samples (distilled water) ",
+      "and should usually not be included in the report."
+    ),
+    shiny::div(
+      style = "font-size: 12px; font-family: monospace;",
+      lapply(lines, shiny::div),
+      if (n_more > 0) shiny::div(paste0("+ ", n_more, " more"))
+    ),
+    shiny::p(
+      style = "margin: 4px 0 0 0;",
+      "Review and exclude them in the 'Samples' tab if needed."
+    )
+  )
+}
+
 #' Data Loader Module Server
 #'
 #' Handles the full data loading pipeline: fetch metadata from the IFCB
@@ -542,6 +627,23 @@ mod_data_loader_server <- function(id, config, rv) {
           rv$current_class_idx <- 1L
           rv$current_region <- "EAST"
           rv$data_loaded <- TRUE
+
+          # Warn about near-empty bins (likely end-of-cruise cleaning-cycle
+          # samples pulling distilled water). duration = NULL keeps the
+          # notification on screen until the user closes it, so it isn't
+          # missed while doing other things after loading. A fixed id makes
+          # a reload replace the previous warning instead of stacking; when
+          # a reload finds nothing, any stale warning is removed.
+          near_empty <- detect_near_empty_bins(matched)
+          if (nrow(near_empty) > 0) {
+            shiny::showNotification(
+              build_near_empty_warning(near_empty),
+              type = "warning", duration = NULL, closeButton = TRUE,
+              id = ns("near_empty_bins")
+            )
+          } else {
+            shiny::removeNotification(ns("near_empty_bins"))
+          }
 
           status(paste0("Data loaded successfully!\n",
                         nrow(matched), " bins, ",
