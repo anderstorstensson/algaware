@@ -37,6 +37,19 @@ knitr::opts_chunk$set(echo = TRUE, eval = FALSE)
 /* Secondary (#95a5a6) */
 .badge-secondary        { background: #95a5a6; color: #fff; }
 .badge-outline-secondary { background: #fff; color: #7b8a8b; border: 1.5px solid #95a5a6; }
+/* Warning call-out (matches .warn-box in the metadata vignette) */
+.warn-box {
+  border-left: 4px solid #f39c12;
+  padding: 10px 14px;
+  margin: 12px 0;
+  border-radius: 2px;
+  background: #fef9e7;
+}
+.warn-box strong { color: #c87f0a; }
+@media (prefers-color-scheme: dark) {
+  .warn-box { background: rgba(243, 156, 18, 0.15); }
+  .warn-box strong { color: #f39c12; }
+}
 </style>
 
 This guide walks through the complete workflow for processing a cruise with
@@ -79,13 +92,16 @@ Open the **Data** panel in the sidebar (it is open by default).
 
 ![Data panel in the sidebar](../man/figures/screenshot-data-sidebar.png)
 
-> **Always upload metadata to the IFCB Dashboard before loading data** — see
-> [Uploading Metadata to the IFCB Dashboard](ifcb-dashboard-metadata.html).
-> Besides assigning cruise numbers, the metadata upload also corrects missing
-> or faulty sample positions. This matters even in *Date Range* mode, which
-> works without an upload: samples affected by GPS disturbances during the
-> cruise have no usable position, cannot be matched to a monitoring station,
-> and are silently missed unless the metadata has been uploaded first.
+<div class="warn-box">
+&#9888;&#65039; **Always upload metadata to the IFCB Dashboard before loading
+data** — see
+[Uploading Metadata to the IFCB Dashboard](ifcb-dashboard-metadata.html).
+Besides assigning cruise numbers, the metadata upload also corrects missing
+or faulty sample positions. This matters even in *Date Range* mode, which
+works without an upload: samples affected by GPS disturbances during the
+cruise have no usable position, cannot be matched to a monitoring station,
+and are silently missed unless the metadata has been uploaded first.
+</div>
 
 1. Choose **Cruise** or **Date Range** using the radio buttons.
    - *Cruise*: select the cruise number from the dropdown after fetching metadata.
