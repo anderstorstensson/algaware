@@ -210,6 +210,14 @@ folder.
 > corrections log from the Report panel and re-import it using
 > <span class="btn-badge badge-secondary">Import corrections</span>.
 
+> **Auto-save:** As a safety net, the corrections log is also saved
+> automatically to a `corrections/` folder inside your Local Storage Path —
+> every time you move to another class or region, and when you close the app.
+> If the app or computer crashes, or you forget to download the corrections
+> before closing, reload the cruise and use
+> <span class="btn-badge badge-secondary">Import corrections</span> on the
+> auto-saved `algaware_corrections_<date>.csv` to pick up where you left off.
+
 ---
 
 ## 4. Review and exclude samples (optional)
@@ -380,6 +388,12 @@ need to generate the report first. Save this alongside the report for archiving.
 You can replay it next session using
 <span class="btn-badge badge-secondary">Import corrections</span> in the
 Validate panel.
+
+> **Forgot to download?** The same CSV is auto-saved to the `corrections/`
+> folder inside your Local Storage Path as you validate, so a crashed or
+> prematurely closed session is not lost — see the auto-save note in
+> [step 3](#browse-and-validate-images). The download button remains the
+> recommended way to archive the corrections alongside the report.
 
 ---
 

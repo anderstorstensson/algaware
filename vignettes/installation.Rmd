@@ -79,7 +79,7 @@ connection details before the app can load any data.
 | **Dashboard Dataset** | Dataset name as it appears in the Dashboard | `RV_Svea` |
 | **Classification Path** | Folder containing the HDF5 (`.h5`) classifier output files | `C:/Users/name/classifications` |
 | **FerryBox Data Path** | Folder with FerryBox `.csv` files (optional) | `C:/Users/name/ferrybox` |
-| **Local Storage Path** | Where downloaded IFCB data will be cached on your computer | `C:/Users/name/algaware_data` |
+| **Local Storage Path** | Where downloaded IFCB data will be cached on your computer (also holds auto-saved corrections in a `corrections/` subfolder) | `C:/Users/name/algaware_data` |
 | **Database Folder** | Where the annotations SQLite file will be stored | `C:/Users/name/algaware_db` |
 | **Non-biological Classes** | Comma-separated class names excluded from all analyses | `detritus,Air_bubbles,Beads,Debris,mix,mixed` |
 | **Pixels per Micron** | Calibration factor for the IFCB camera | `2.77` |
