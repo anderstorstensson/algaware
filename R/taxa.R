@@ -243,7 +243,7 @@ format_taxon_labels <- function(scientific_names, taxa_lookup,
 #' @param custom_classes Data frame of custom classes (from \code{rv$custom_classes}).
 #' @return \code{corrections} with extra columns \code{custom_sci_name},
 #'   \code{custom_sflag}, \code{custom_aphia_id}, \code{custom_hab},
-#'   \code{custom_italic}.
+#'   \code{custom_italic}, \code{custom_is_diatom}.
 #' @keywords internal
 enrich_corrections_for_export <- function(corrections, custom_classes) {
   corrections$custom_sci_name  <- NA_character_
@@ -251,6 +251,7 @@ enrich_corrections_for_export <- function(corrections, custom_classes) {
   corrections$custom_aphia_id  <- NA_integer_
   corrections$custom_hab       <- NA
   corrections$custom_italic    <- NA
+  corrections$custom_is_diatom <- NA
 
   if (is.null(custom_classes) || nrow(custom_classes) == 0) {
     return(corrections)
@@ -267,6 +268,69 @@ enrich_corrections_for_export <- function(corrections, custom_classes) {
   corrections$custom_aphia_id[has_custom] <- custom_classes$AphiaID[idx]
   corrections$custom_hab[has_custom]      <- custom_classes$HAB[idx]
   corrections$custom_italic[has_custom]   <- custom_classes$italic[idx]
+  corrections$custom_is_diatom[has_custom] <-
+    if ("is_diatom" %in% names(custom_classes)) {
+      custom_classes$is_diatom[idx]
+    } else {
+      FALSE
+    }
 
   corrections
+}
+
+#' Reconstruct custom classes from an imported corrections data frame
+#'
+#' Inverse of \code{enrich_corrections_for_export()}: extracts the custom
+#' classes embedded in a corrections CSV so they can be re-added on import.
+#' Only classes not already in \code{known_classes} are returned.
+#'
+#' Backwards compatible with files written before \code{custom_is_diatom}
+#' existed: a missing column (or \code{NA} values) defaults
+#' \code{is_diatom} to \code{FALSE}, matching the old import behaviour.
+#'
+#' @param df Imported corrections data frame.
+#' @param known_classes Character vector of already-known class names
+#'   (database class list, taxa lookup, and existing custom classes).
+#' @return A data.frame in the shape of \code{rv$custom_classes} (possibly
+#'   zero rows).
+#' @keywords internal
+custom_classes_from_corrections <- function(df, known_classes) {
+  empty <- data.frame(
+    clean_names = character(0), name = character(0), sflag = character(0),
+    AphiaID = integer(0), HAB = logical(0), italic = logical(0),
+    is_diatom = logical(0), stringsAsFactors = FALSE
+  )
+
+  custom_cols <- c("custom_sci_name", "custom_sflag",
+                   "custom_aphia_id", "custom_hab", "custom_italic")
+  if (!all(custom_cols %in% names(df))) {
+    return(empty)
+  }
+
+  custom_rows <- df[!is.na(df$custom_sci_name), , drop = FALSE]
+  custom_rows <- custom_rows[!duplicated(custom_rows$new_class), , drop = FALSE]
+  new_custom <- custom_rows[!custom_rows$new_class %in% known_classes, ,
+                            drop = FALSE]
+  if (nrow(new_custom) == 0) {
+    return(empty)
+  }
+
+  is_diatom <- if ("custom_is_diatom" %in% names(new_custom)) {
+    vals <- as.logical(new_custom$custom_is_diatom)
+    !is.na(vals) & vals
+  } else {
+    rep(FALSE, nrow(new_custom))
+  }
+
+  data.frame(
+    clean_names = new_custom$new_class,
+    name        = new_custom$custom_sci_name,
+    sflag       = ifelse(is.na(new_custom$custom_sflag), "",
+                         new_custom$custom_sflag),
+    AphiaID     = as.integer(new_custom$custom_aphia_id),
+    HAB         = as.logical(new_custom$custom_hab),
+    italic      = as.logical(new_custom$custom_italic),
+    is_diatom   = is_diatom,
+    stringsAsFactors = FALSE
+  )
 }

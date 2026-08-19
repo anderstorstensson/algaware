@@ -31,3 +31,9 @@ the current region to a different class (session-only)
 unclassified (session-only)
 }
 }
+\details{
+As crash protection, the corrections log is also auto-saved to
+\code{<local_storage_path>/corrections/} (same CSV format as "Download
+corrections") whenever the user navigates to another class or region and
+on clean session end; see \code{autosave_corrections()}.
+}
