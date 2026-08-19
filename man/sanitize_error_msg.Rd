@@ -15,5 +15,9 @@ Simplified character string.
 \description{
 Strips the leading "Error in \if{html}{\out{<call>}}: " prefix that R prepends to condition
 messages so that only the human-readable part is shown in the sidebar.
+Only that exact prefix is removed: the old greedy pattern (\code{"^.*: "})
+stripped everything up to the \emph{last} colon, reducing e.g.
+\verb{cannot open URL 'https://...': HTTP status was '404 Not Found'} to just
+\code{'404 Not Found'} -- and this is the only error surface the app has.
 }
 \keyword{internal}
