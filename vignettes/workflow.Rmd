@@ -79,6 +79,14 @@ Open the **Data** panel in the sidebar (it is open by default).
 
 ![Data panel in the sidebar](../man/figures/screenshot-data-sidebar.png)
 
+> **Always upload metadata to the IFCB Dashboard before loading data** — see
+> [Uploading Metadata to the IFCB Dashboard](ifcb-dashboard-metadata.html).
+> Besides assigning cruise numbers, the metadata upload also corrects missing
+> or faulty sample positions. This matters even in *Date Range* mode, which
+> works without an upload: samples affected by GPS disturbances during the
+> cruise have no usable position, cannot be matched to a monitoring station,
+> and are silently missed unless the metadata has been uploaded first.
+
 1. Choose **Cruise** or **Date Range** using the radio buttons.
    - *Cruise*: select the cruise number from the dropdown after fetching metadata.
      For cruise numbers to appear, the yearly metadata file must have been
