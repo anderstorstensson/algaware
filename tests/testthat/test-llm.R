@@ -1026,3 +1026,52 @@ test_that("extract_llm_content raises on missing or empty content", {
     "Hello"
   )
 })
+
+# -- unclassified category excluded from LLM text ------------------------------
+
+make_unclass_station <- function() {
+  data.frame(
+    visit_id = "v1", STATION_NAME = "Anholt E", STATION_NAME_SHORT = "ANHOLT E",
+    COAST = "WEST", visit_date = as.Date("2024-03-01"),
+    name = c("Unclassified", "Skeletonema marinoi", "Dinophysis acuta"),
+    sflag = "", AphiaID = c(NA, 1L, 2L),
+    biovolume_mm3_per_liter = c(5, 1, 0.5),
+    carbon_ug_per_liter = c(50, 10, 5),
+    counts_per_liter = c(5000, 1000, 500),
+    stringsAsFactors = FALSE
+  )
+}
+
+test_that("drop_unclassified_for_text removes unclassified rows case-insensitively", {
+  df <- make_unclass_station()
+  df$name[1] <- "unclassified"
+  out <- drop_unclassified_for_text(df)
+  expect_equal(out$name, c("Skeletonema marinoi", "Dinophysis acuta"))
+  expect_equal(drop_unclassified_for_text(df[0, ]), df[0, ])
+})
+
+test_that("station prompt omits unclassified and recomputes totals without it", {
+  txt <- format_station_data_for_prompt(make_unclass_station())
+  expect_false(grepl("Unclassified", txt, ignore.case = TRUE))
+  expect_true(grepl("Number of taxa: 2", txt, fixed = TRUE))
+  expect_true(grepl("Skeletonema marinoi: 1.000 mm3/L (66.7% of total)", txt,
+                    fixed = TRUE))
+})
+
+test_that("cruise summary prompt omits unclassified", {
+  txt <- format_cruise_summary_for_prompt(make_unclass_station())
+  expect_false(grepl("Unclassified", txt, ignore.case = TRUE))
+  expect_true(grepl("2 taxa", txt, fixed = TRUE))
+  expect_true(grepl("Top: Skeletonema marinoi, Dinophysis acuta", txt,
+                    fixed = TRUE))
+})
+
+test_that("unclassified does not suppress bloom alerts by diluting biovolume", {
+  df <- make_unclass_station()
+  df$visit_date <- as.Date("2024-01-20")
+  df$chl_mean <- 5
+  groups <- data.frame(name = "Skeletonema marinoi", AphiaID = 1L,
+                       phyto_group = "Diatoms", stringsAsFactors = FALSE)
+  note <- bloom_alert_note(df, groups, lang = "en")
+  expect_true(grepl("SPRING BLOOM", note, fixed = TRUE))
+})
