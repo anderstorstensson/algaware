@@ -32,6 +32,10 @@
   `Ciliates` group (phylum Ciliophora) in `inst/config/phyto_groups.yaml`.
   Note that SHARK4R applies the custom groups in YAML order with later rules
   overwriting earlier matches, so broad rules must come before specific ones.
+  To make room for the group labels, the biovolume colour bar now sits
+  horizontally above the heatmap, and with more than eight station visits
+  the x-axis labels switch to a compact vertical two-line form
+  (`STATION (n = X)` over the date) so they no longer overlap.
 
 ## Minor improvements and fixes
 
