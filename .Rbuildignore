@@ -6,3 +6,4 @@
 ^pkgdown$
 ^\.devcontainer$
 ^\.mcp\.json$
+^\.claude$

@@ -38,6 +38,17 @@
 
 ## Minor improvements and fixes
 
+- Loading a new cruise now clears the corrections log, custom classes and
+  gallery selection from the previous cruise. Before, corrections made on
+  one cruise were carried into the next cruise loaded in the same session and
+  ended up mixed into its exported and auto-saved corrections file.
+- Station descriptions no longer fall back to the "(LLM generation failed)"
+  placeholder when every image at a visit is unclassified (e.g. a near-empty
+  cleaning-cycle bin); the prompt now states that no classified taxa were
+  recorded.
+- Heatmap row labels are HTML-escaped, so a custom class name containing
+  `<`, `>` or `&` no longer aborts report generation.
+
 - The "unclassified" classifier category is no longer passed to the LLM
   prompts, so generated station descriptions and cruise summaries no longer
   describe it as a dominant taxon. Totals, percentages and group breakdowns
