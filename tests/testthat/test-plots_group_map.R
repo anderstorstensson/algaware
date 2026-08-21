@@ -44,3 +44,17 @@ test_that("create_group_map omits the biomass size legend", {
   size_scale <- p$scales$get_scales("size")
   expect_null(size_scale)
 })
+
+test_that("create_group_map folds non-pie groups (e.g. Ciliates) into Other", {
+  skip_if_not_installed("rnaturalearthdata")
+  io <- group_map_inputs()
+  io$phyto_groups$phyto_group.plankton_group[1] <- "Ciliates"
+  p <- create_group_map(io$station_summary, io$phyto_groups)
+  expect_s3_class(p, "ggplot")
+  groups <- unlist(lapply(p$layers, function(l) {
+    if (!is.null(l$data) && "group" %in% names(l$data)) {
+      as.character(l$data$group)
+    }
+  }))
+  expect_false("Ciliates" %in% groups)
+})

@@ -1,23 +1,20 @@
-#' Order heatmap taxa by phytoplankton group, then alphabetically
+#' Resolve the heatmap group of each taxon
 #'
-#' Groups follow the canonical order used elsewhere in AlgAware (Diatoms,
-#' Dinoflagellates, Cyanobacteria, Cryptophytes, \emph{Mesodinium} spp.,
-#' Silicoflagellates), then any additional groups alphabetically, with
-#' "Other" always last.  Taxa are sorted alphabetically within each group;
-#' taxa missing from \code{phyto_groups} fall into "Other".
+#' Looks up each name in \code{phyto_groups} (trying the exact name first,
+#' then with any trailing sflag such as "spp." stripped, since heatmap row
+#' names carry the suffix while \code{phyto_groups$name} is the bare WoRMS
+#' name). Unmatched taxa become "Other".
 #'
-#' @param scientific_names Character vector of taxon names to order.
+#' Unlike the pie charts, the heatmap shows all ciliates as one block, so
+#' the pie-chart-only group \code{"Mesodinium spp."} is folded into
+#' \code{"Ciliates"} here.
+#'
+#' @param scientific_names Character vector of taxon names.
 #' @param phyto_groups Data frame with columns \code{name} and
 #'   \code{phyto_group}.
-#' @return \code{scientific_names} reordered (top-to-bottom display order).
+#' @return Character vector of group names, one per input name.
 #' @keywords internal
-order_taxa_by_group <- function(scientific_names, phyto_groups) {
-  canonical <- c("Diatoms", "Dinoflagellates", "Cyanobacteria",
-                 "Cryptophytes", "Mesodinium spp.", "Silicoflagellates")
-
-  # Heatmap row names carry the sflag suffix ("Actinocyclus spp."), while
-  # phyto_groups$name is the bare WoRMS name ("Actinocyclus"): try the exact
-  # name first, then retry with any trailing sflag stripped.
+heatmap_group_of <- function(scientific_names, phyto_groups) {
   stripped <- sub(" (sp\\.|spp\\.|group)$", "", scientific_names)
   group <- phyto_groups$phyto_group[
     match(scientific_names, phyto_groups$name)
@@ -27,18 +24,48 @@ order_taxa_by_group <- function(scientific_names, phyto_groups) {
     match(stripped[miss], phyto_groups$name)
   ]
   group[is.na(group)] <- "Other"
+  group[group == "Mesodinium spp."] <- "Ciliates"
+  group
+}
 
-  extra <- sort(setdiff(group, c(canonical, "Other")))
-  group_levels <- c(canonical, extra, "Other")
+#' Canonical heatmap group order
+#'
+#' Diatoms, Dinoflagellates, Cyanobacteria, Cryptophytes, Ciliates,
+#' Silicoflagellates, then any additional groups alphabetically, with
+#' "Other" always last.
+#'
+#' @param groups Character vector of group names present.
+#' @return Character vector of group levels (top-to-bottom display order).
+#' @keywords internal
+heatmap_group_levels <- function(groups) {
+  canonical <- c("Diatoms", "Dinoflagellates", "Cyanobacteria",
+                 "Cryptophytes", "Ciliates", "Silicoflagellates")
+  extra <- sort(setdiff(groups, c(canonical, "Other")))
+  c(canonical, extra, "Other")
+}
 
-  scientific_names[
-    order(match(group, group_levels), scientific_names)
-  ]
+#' Order heatmap taxa by phytoplankton group, then alphabetically
+#'
+#' Groups follow \code{heatmap_group_levels()}; taxa are sorted
+#' alphabetically within each group.
+#'
+#' @param scientific_names Character vector of taxon names to order.
+#' @param phyto_groups Data frame with columns \code{name} and
+#'   \code{phyto_group}.
+#' @return \code{scientific_names} reordered (top-to-bottom display order).
+#' @keywords internal
+order_taxa_by_group <- function(scientific_names, phyto_groups) {
+  group <- heatmap_group_of(scientific_names, phyto_groups)
+  levels <- heatmap_group_levels(group)
+  scientific_names[order(match(group, levels), scientific_names)]
 }
 
 #' Create a heatmap of biovolume by species and station
 #'
 #' HAB species are marked with a red asterisk (*) on the y-axis labels.
+#' When \code{phyto_groups} is supplied, rows are split into one panel per
+#' phytoplankton group with a coloured group label on the left (colours
+#' match the pie-chart group map).
 #'
 #' @param wide_summary Wide-format data from \code{create_wide_summary()}.
 #' @param taxa_lookup Optional taxa lookup table with \code{HAB} column. If
@@ -49,8 +76,9 @@ order_taxa_by_group <- function(scientific_names, phyto_groups) {
 #'   to each x-axis label.
 #' @param phyto_groups Optional data frame with columns \code{name} and
 #'   \code{phyto_group} (as built from \code{assign_phyto_groups()}). If
-#'   provided, taxa are ordered by phytoplankton group and alphabetically
-#'   within each group; otherwise by total biovolume (descending).
+#'   provided, taxa are grouped into labelled panels by phytoplankton group
+#'   and ordered alphabetically within each group; otherwise by total
+#'   biovolume (descending).
 #' @return A ggplot object.
 #' @export
 create_heatmap <- function(wide_summary, taxa_lookup = NULL, title = "",
@@ -67,12 +95,16 @@ create_heatmap <- function(wide_summary, taxa_lookup = NULL, title = "",
   long_data$station_date <- factor(long_data$station_date,
                                    levels = station_date_order)
 
-  if (!is.null(phyto_groups) && nrow(phyto_groups) > 0) {
-    # rev(): factor levels run bottom-to-top on a discrete y-axis, so the
-    # first group (Diatoms) and A->Z order read top-to-bottom in the plot.
-    species_order <- rev(order_taxa_by_group(
-      unique(long_data$scientific_name), phyto_groups
-    ))
+  use_groups <- !is.null(phyto_groups) && nrow(phyto_groups) > 0
+  if (use_groups) {
+    taxa <- unique(long_data$scientific_name)
+    group_of <- stats::setNames(heatmap_group_of(taxa, phyto_groups), taxa)
+    group_levels <- heatmap_group_levels(group_of)
+    long_data$phyto_group <- factor(group_of[long_data$scientific_name],
+                                    levels = group_levels)
+    # rev(): factor levels run bottom-to-top on a discrete y-axis, so A->Z
+    # order reads top-to-bottom within each panel.
+    species_order <- rev(order_taxa_by_group(taxa, phyto_groups))
   } else {
     species_order <- stats::aggregate(
       biovolume ~ scientific_name,
@@ -137,6 +169,10 @@ create_heatmap <- function(wide_summary, taxa_lookup = NULL, title = "",
       plot.caption = ggtext::element_markdown()
     )
 
+  if (use_groups) {
+    p <- p + heatmap_group_facets(group_levels)
+  }
+
   if (length(hab_in_plot) > 0) {
     p <- p + ggplot2::labs(
       caption = "<span style='color:red'>*</span> Potentially harmful taxon"
@@ -144,6 +180,48 @@ create_heatmap <- function(wide_summary, taxa_lookup = NULL, title = "",
   }
 
   p
+}
+
+#' Facet layers that draw coloured group strips on the heatmap
+#'
+#' One panel per group (rows sized to the number of taxa), with the group
+#' name on the left, coloured with the shared pie-chart palette. Labels are
+#' horizontal (not rotated) so single-row groups cannot clip the text.
+#' A thin grey background band separates the panels. Groups without a
+#' palette entry fall back to the "Other" grey.
+#'
+#' @param group_levels Character vector of group levels in display order.
+#' @return A list of ggplot2 components to add to a plot.
+#' @keywords internal
+heatmap_group_facets <- function(group_levels) {
+  palette <- phyto_group_colors()
+  colors <- palette[group_levels]
+  colors[is.na(colors)] <- palette[["Other"]]
+  strip_labels <- stats::setNames(
+    paste0("<span style='color:", colors, "'><b>", group_levels,
+           "</b></span>"),
+    group_levels
+  )
+
+  list(
+    ggplot2::facet_grid(
+      rows = ggplot2::vars(.data$phyto_group),
+      scales = "free_y",
+      space = "free_y",
+      switch = "y",
+      labeller = ggplot2::as_labeller(strip_labels)
+    ),
+    ggplot2::theme(
+      strip.placement = "outside",
+      strip.text.y.left = ggtext::element_markdown(
+        angle = 0, hjust = 1, size = 9,
+        margin = ggplot2::margin(r = 5, l = 4)
+      ),
+      strip.background = ggplot2::element_rect(fill = "grey95",
+                                               colour = NA),
+      panel.spacing.y = ggplot2::unit(3, "pt")
+    )
+  )
 }
 
 #' Create a stacked bar chart of relative biovolume
