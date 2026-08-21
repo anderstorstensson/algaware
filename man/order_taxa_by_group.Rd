@@ -16,10 +16,7 @@ order_taxa_by_group(scientific_names, phyto_groups)
 \code{scientific_names} reordered (top-to-bottom display order).
 }
 \description{
-Groups follow the canonical order used elsewhere in AlgAware (Diatoms,
-Dinoflagellates, Cyanobacteria, Cryptophytes, \emph{Mesodinium} spp.,
-Silicoflagellates), then any additional groups alphabetically, with
-"Other" always last.  Taxa are sorted alphabetically within each group;
-taxa missing from \code{phyto_groups} fall into "Other".
+Groups follow \code{heatmap_group_levels()}; taxa are sorted
+alphabetically within each group.
 }
 \keyword{internal}

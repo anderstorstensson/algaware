@@ -266,3 +266,13 @@ test_that("merge_custom_taxa returns taxa_lookup unchanged with no custom", {
     taxa
   )
 })
+
+test_that("phyto group config lists Ciliates before the Mesodinium carve-out", {
+  cfg <- algaware:::load_phyto_group_config()
+  custom <- names(cfg$custom)
+  expect_true(all(c("Ciliates", "Mesodinium spp.") %in% custom))
+  # Later custom rules overwrite earlier ones in SHARK4R, so the broad
+  # Ciliates rule must precede the specific Mesodinium rule.
+  expect_lt(match("Ciliates", custom), match("Mesodinium spp.", custom))
+  expect_equal(cfg$custom$Ciliates$phylum, "Ciliophora")
+})

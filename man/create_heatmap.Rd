@@ -26,12 +26,16 @@ to each x-axis label.}
 
 \item{phyto_groups}{Optional data frame with columns \code{name} and
 \code{phyto_group} (as built from \code{assign_phyto_groups()}). If
-provided, taxa are ordered by phytoplankton group and alphabetically
-within each group; otherwise by total biovolume (descending).}
+provided, taxa are grouped into labelled panels by phytoplankton group
+and ordered alphabetically within each group; otherwise by total
+biovolume (descending).}
 }
 \value{
 A ggplot object.
 }
 \description{
 HAB species are marked with a red asterisk (*) on the y-axis labels.
+When \code{phyto_groups} is supplied, rows are split into one panel per
+phytoplankton group with a coloured group label on the left (colours
+match the pie-chart group map).
 }

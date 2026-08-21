@@ -1,10 +1,34 @@
+#' Shared colour palette for phytoplankton groups
+#'
+#' One palette used by both the pie-chart group map and the heatmap group
+#' strips so a group always has the same colour across the report.
+#' \code{"Ciliates"} (heatmap only) is a darker gold in the same family as
+#' the \emph{Mesodinium} pie colour: the heatmap strip label is text on a
+#' light grey band, where the brighter pie yellow lacks contrast.
+#'
+#' @return Named character vector of hex colours.
+#' @keywords internal
+phyto_group_colors <- function() {
+  c(
+    Diatoms           = "#4A90D9",
+    Dinoflagellates   = "#E74C3C",
+    Cyanobacteria     = "#14B8A6",
+    Cryptophytes      = "#9B59B6",
+    `Mesodinium spp.` = "#F1C40F",
+    Ciliates          = "#D4AC0D",
+    Silicoflagellates = "#E67E22",
+    Other             = "#95A5A6"
+  )
+}
+
 #' Create a phytoplankton group composition map
 #'
 #' Thin AlgAware-specific wrapper around
 #' \code{\link[SHARK4R]{create_pie_map}}. Draws a pie chart at each station
 #' showing the relative carbon biomass contributed by Diatoms,
 #' Dinoflagellates, Cyanobacteria, Cryptophytes, Mesodinium spp.,
-#' Silicoflagellates, and Other.
+#' Silicoflagellates, and Other. Any other group (e.g. "Ciliates") is
+#' folded into "Other".
 #'
 #' @param station_summary Aggregated station data from
 #'   \code{aggregate_station_data()}, containing columns \code{name},
@@ -21,15 +45,7 @@ create_group_map <- function(station_summary, phyto_groups, r_lat = 0.28) {
   group_levels <- c("Diatoms", "Dinoflagellates", "Cyanobacteria",
                     "Cryptophytes", "Mesodinium spp.", "Silicoflagellates",
                     "Other")
-  group_colors <- c(
-    Diatoms           = "#4A90D9",
-    Dinoflagellates   = "#E74C3C",
-    Cyanobacteria     = "#14B8A6",
-    Cryptophytes      = "#9B59B6",
-    `Mesodinium spp.` = "#F1C40F",
-    Silicoflagellates = "#E67E22",
-    Other             = "#95A5A6"
-  )
+  group_colors <- phyto_group_colors()[group_levels]
   group_labels <- c(
     Diatoms           = "Diatoms",
     Dinoflagellates   = "Dinoflagellates",
@@ -56,7 +72,8 @@ create_group_map <- function(station_summary, phyto_groups, r_lat = 0.28) {
     by    = c("name", "AphiaID"),
     all.x = TRUE
   )
-  merged$phyto_group[is.na(merged$phyto_group)] <- "Other"
+  merged$phyto_group[is.na(merged$phyto_group) |
+                       !merged$phyto_group %in% group_levels] <- "Other"
 
   # Drop rows without coordinates (station absent from the SHARK register);
   # they cannot be drawn and would otherwise be discarded silently.

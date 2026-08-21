@@ -253,3 +253,95 @@ test_that("create_heatmap keeps biovolume ordering without phyto_groups", {
   expect_s3_class(p, "ggplot")
   expect_equal(levels(p$data$scientific_name), c("High", "Low"))
 })
+
+test_that("heatmap_group_of folds Mesodinium spp. into Ciliates", {
+  groups <- data.frame(
+    name = c("Mesodinium rubrum", "Strombidium", "Skeletonema"),
+    phyto_group = c("Mesodinium spp.", "Ciliates", "Diatoms"),
+    stringsAsFactors = FALSE
+  )
+  result <- algaware:::heatmap_group_of(
+    c("Mesodinium rubrum", "Strombidium spp.", "Skeletonema", "Nope"),
+    groups
+  )
+  expect_equal(result, c("Ciliates", "Ciliates", "Diatoms", "Other"))
+})
+
+test_that("order_taxa_by_group keeps all ciliates together", {
+  groups <- data.frame(
+    name = c("Mesodinium rubrum", "Strombidium", "Dictyocha", "Skeletonema"),
+    phyto_group = c("Mesodinium spp.", "Ciliates", "Silicoflagellates",
+                    "Diatoms"),
+    stringsAsFactors = FALSE
+  )
+  result <- algaware:::order_taxa_by_group(
+    c("Dictyocha", "Strombidium", "Skeletonema", "Mesodinium rubrum"),
+    groups
+  )
+  expect_equal(result, c("Skeletonema", "Mesodinium rubrum", "Strombidium",
+                         "Dictyocha"))
+})
+
+test_that("create_heatmap facets by group with coloured strips", {
+  wide <- data.frame(
+    scientific_name = c("Dinophysis", "Skeletonema", "Mesodinium rubrum"),
+    `STN1_2022-01-01` = c(100, 1, 10),
+    check.names = FALSE,
+    stringsAsFactors = FALSE
+  )
+  groups <- data.frame(
+    name = c("Dinophysis", "Skeletonema", "Mesodinium rubrum"),
+    phyto_group = c("Dinoflagellates", "Diatoms", "Mesodinium spp."),
+    stringsAsFactors = FALSE
+  )
+  p <- create_heatmap(wide, phyto_groups = groups)
+  expect_s3_class(p$facet, "FacetGrid")
+  built <- ggplot2::ggplot_build(p)
+  panels <- built$layout$layout$phyto_group
+  expect_equal(as.character(panels),
+               c("Diatoms", "Dinoflagellates", "Ciliates"))
+  # No facets without groups
+  p0 <- create_heatmap(wide)
+  expect_s3_class(p0$facet, "FacetNull")
+})
+
+test_that("phyto_group_colors covers all heatmap and pie groups", {
+  pal <- algaware:::phyto_group_colors()
+  expect_true(all(c("Diatoms", "Dinoflagellates", "Cyanobacteria",
+                    "Cryptophytes", "Mesodinium spp.", "Ciliates",
+                    "Silicoflagellates", "Other") %in% names(pal)))
+})
+
+test_that("heatmap_x_labels builds three-line and compact two-line labels", {
+  x <- c("BY31_2026-08-01", "ANHOLT E_2026-08-02")
+  n <- c(`BY31_2026-08-01` = 3L)
+  expect_equal(algaware:::heatmap_x_labels(x),
+               c("BY31\n2026-08-01", "ANHOLT E\n2026-08-02"))
+  expect_equal(algaware:::heatmap_x_labels(x, n),
+               c("BY31\n2026-08-01\nn = 3", "ANHOLT E\n2026-08-02"))
+  expect_equal(algaware:::heatmap_x_labels(x, n, compact = TRUE),
+               c("BY31 (n = 3)\n2026-08-01", "ANHOLT E\n2026-08-02"))
+})
+
+test_that("create_heatmap colours HAB labels via markdown, not a colour vector", {
+  wide <- data.frame(
+    scientific_name = c("Dinophysis", "Skeletonema", "Attheya"),
+    `STN1_2022-01-01` = c(1, 2, 3),
+    check.names = FALSE,
+    stringsAsFactors = FALSE
+  )
+  taxa <- data.frame(name = c("Dinophysis", "Skeletonema", "Attheya"),
+                     HAB = c(TRUE, FALSE, FALSE))
+  groups <- data.frame(
+    name = c("Dinophysis", "Skeletonema", "Attheya"),
+    phyto_group = c("Dinoflagellates", "Diatoms", "Diatoms"),
+    stringsAsFactors = FALSE
+  )
+  p <- create_heatmap(wide, taxa_lookup = taxa, phyto_groups = groups)
+  labels <- p$scales$get_scales("y")$labels
+  expect_match(labels[["Dinophysis"]], "color:red.*Dinophysis\\*")
+  expect_false(grepl("red", labels[["Attheya"]]))
+  expect_false(grepl("red", labels[["Skeletonema"]]))
+  expect_s3_class(p$theme$axis.text.y.left, "element_markdown")
+  expect_equal(p$theme$legend.position, "top")
+})

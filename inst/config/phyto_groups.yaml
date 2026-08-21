@@ -5,8 +5,9 @@
 #
 # The three "core" groups (Diatoms, Dinoflagellates, Cyanobacteria) map to
 # dedicated parameters in SHARK4R::assign_phytoplankton_group(); all others
-# are passed via its custom_groups argument and are evaluated in order, so
-# place more-specific groups (genus-level) before broader ones (class-level).
+# are passed via its custom_groups argument and are evaluated in order. A
+# later rule overwrites an earlier match, so place broader groups
+# (phylum/class-level) BEFORE more-specific ones (genus-level).
 
 Diatoms:
   role: diatoms          # maps to diatom_class parameter
@@ -28,7 +29,15 @@ Cyanobacteria:
   phylum:
     - Cyanobacteria
 
-# Custom groups (evaluated in order; more-specific rules should come first)
+# Custom groups (evaluated in order; a later rule overwrites an earlier one,
+# so broad rules first, specific rules last)
+
+# All ciliates. Mesodinium is carved out below into its own group for the
+# pie charts; the heatmap folds it back into Ciliates (see
+# heatmap_group_of()).
+Ciliates:
+  phylum:
+    - Ciliophora
 
 Mesodinium spp.:
   genus:
