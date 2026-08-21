@@ -52,6 +52,15 @@ chl_measure_terms <- function(chl_measure = "fluorescence") {
 #' @return \code{x} with an added \code{text_group} column.
 #' @keywords internal
 attach_text_groups <- function(x, phyto_groups = NULL) {
+  # `x$col <- "Other"` errors on a zero-row frame ("replacement has 1 row,
+  # data has 0"), which drop_unclassified_for_text() can now produce.
+  if (is.null(x) || nrow(x) == 0) {
+    if (!is.null(x)) {
+      x$detailed_group <- character(0)
+      x$text_group <- character(0)
+    }
+    return(x)
+  }
   x$detailed_group <- "Other"
   x$text_group <- "Other"
   groups <- normalize_phyto_groups_for_text(phyto_groups)
@@ -186,14 +195,26 @@ format_station_data_for_prompt <- function(station_data, taxa_lookup = NULL,
                                            unclassified_pct = NULL,
                                            phyto_groups = NULL,
                                            chl_measure = "fluorescence") {
-  station_data <- drop_unclassified_for_text(station_data)
-  station_data$.row_id_tmp <- seq_len(nrow(station_data))
-  station_data <- attach_text_groups(station_data, phyto_groups)
+  # Read the visit header from the unfiltered data: a near-empty bin whose
+  # few images are all "unclassified" has no rows left after the filter.
   station_name <- station_data$STATION_NAME_SHORT[1]
   full_name <- station_data$STATION_NAME[1]
   coast <- station_data$COAST[1]
   visit_date <- as.character(station_data$visit_date[1])
-  region <- if (coast == "EAST") "Baltic Sea" else "West Coast (Skagerrak/Kattegat)"
+  region <- if (isTRUE(coast == "EAST")) "Baltic Sea" else "West Coast (Skagerrak/Kattegat)"
+
+  station_data <- drop_unclassified_for_text(station_data)
+  if (nrow(station_data) == 0) {
+    return(paste0(
+      "Station: ", station_name, " (", full_name, ")\n",
+      "Region: ", region, "\n",
+      "Date: ", visit_date, "\n",
+      "No classified phytoplankton taxa were recorded at this visit; all ",
+      "images were unclassified."
+    ))
+  }
+  station_data$.row_id_tmp <- seq_len(nrow(station_data))
+  station_data <- attach_text_groups(station_data, phyto_groups)
 
   # Sort by biovolume descending
   station_data <- station_data[order(-station_data$biovolume_mm3_per_liter), ]
