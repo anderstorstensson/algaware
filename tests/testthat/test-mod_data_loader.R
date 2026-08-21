@@ -140,3 +140,35 @@ test_that("build_near_empty_warning renders count, bins, and truncation", {
   # NA station name is omitted, not printed as "(NA)"
   expect_false(grepl("\\(NA\\)", html_single))
 })
+
+test_that("reset_corrections_state empties corrections and custom classes but keeps shape", {
+  rv <- shiny::reactiveValues(
+    corrections = data.frame(
+      sample_name = "D20240301T100000_IFCB134", roi_number = 1L,
+      original_class = "A", new_class = "B", stringsAsFactors = FALSE
+    ),
+    custom_classes = data.frame(
+      clean_names = "Foo", name = "Foo", sflag = "", AphiaID = 1L,
+      HAB = FALSE, italic = TRUE, is_diatom = TRUE, stringsAsFactors = FALSE
+    ),
+    selected_images = c("img1", "img2")
+  )
+  shiny::isolate(reset_corrections_state(rv))
+  shiny::isolate({
+    expect_equal(nrow(rv$corrections), 0)
+    expect_named(rv$corrections,
+                 c("sample_name", "roi_number", "original_class", "new_class"))
+    expect_type(rv$corrections$roi_number, "integer")
+    expect_equal(nrow(rv$custom_classes), 0)
+    expect_named(rv$custom_classes,
+                 c("clean_names", "name", "sflag", "AphiaID", "HAB", "italic",
+                   "is_diatom"))
+    expect_equal(rv$selected_images, character(0))
+  })
+})
+
+test_that("reset_corrections_state tolerates missing fields", {
+  rv <- shiny::reactiveValues()
+  expect_no_error(shiny::isolate(reset_corrections_state(rv)))
+  expect_equal(shiny::isolate(rv$selected_images), character(0))
+})
