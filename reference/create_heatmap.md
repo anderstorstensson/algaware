@@ -9,7 +9,8 @@ create_heatmap(
   wide_summary,
   taxa_lookup = NULL,
   title = "",
-  sample_counts = NULL
+  sample_counts = NULL,
+  phyto_groups = NULL
 )
 ```
 
@@ -34,6 +35,15 @@ create_heatmap(
   Optional named integer vector mapping station_date column names to
   number of samples. If provided, `n = X` is appended to each x-axis
   label.
+
+- phyto_groups:
+
+  Optional data frame with columns `name` and `phyto_group` (as built
+  from
+  [`assign_phyto_groups()`](https://nodc-sweden.github.io/ifcb-algaware/reference/assign_phyto_groups.md)).
+  If provided, taxa are ordered by phytoplankton group and
+  alphabetically within each group; otherwise by total biovolume
+  (descending).
 
 ## Value
 

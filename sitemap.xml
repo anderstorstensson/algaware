@@ -49,6 +49,7 @@
 <url><loc>https://nodc-sweden.github.io/ifcb-algaware/reference/compute_median_color.html</loc></url>
 <url><loc>https://nodc-sweden.github.io/ifcb-algaware/reference/compute_per_liter.html</loc></url>
 <url><loc>https://nodc-sweden.github.io/ifcb-algaware/reference/compute_presence_categories.html</loc></url>
+<url><loc>https://nodc-sweden.github.io/ifcb-algaware/reference/compute_profile_xlim.html</loc></url>
 <url><loc>https://nodc-sweden.github.io/ifcb-algaware/reference/compute_region_plot_height.html</loc></url>
 <url><loc>https://nodc-sweden.github.io/ifcb-algaware/reference/compute_sample_volumes.html</loc></url>
 <url><loc>https://nodc-sweden.github.io/ifcb-algaware/reference/compute_unclassified_fractions.html</loc></url>
@@ -150,6 +151,7 @@
 <url><loc>https://nodc-sweden.github.io/ifcb-algaware/reference/normalize_settings_path.html</loc></url>
 <url><loc>https://nodc-sweden.github.io/ifcb-algaware/reference/normalize_station_name.html</loc></url>
 <url><loc>https://nodc-sweden.github.io/ifcb-algaware/reference/null-coalesce.html</loc></url>
+<url><loc>https://nodc-sweden.github.io/ifcb-algaware/reference/order_taxa_by_group.html</loc></url>
 <url><loc>https://nodc-sweden.github.io/ifcb-algaware/reference/paginate_images.html</loc></url>
 <url><loc>https://nodc-sweden.github.io/ifcb-algaware/reference/parse_image_ids.html</loc></url>
 <url><loc>https://nodc-sweden.github.io/ifcb-algaware/reference/parse_non_bio_classes.html</loc></url>

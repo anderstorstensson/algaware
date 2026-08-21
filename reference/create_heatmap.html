@@ -84,7 +84,8 @@ footer {
 <span>  <span class="va">wide_summary</span>,</span>
 <span>  taxa_lookup <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  title <span class="op">=</span> <span class="st">""</span>,</span>
-<span>  sample_counts <span class="op">=</span> <span class="cn">NULL</span></span>
+<span>  sample_counts <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  phyto_groups <span class="op">=</span> <span class="cn">NULL</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -109,6 +110,13 @@ provided, HAB species are annotated with a red asterisk on the y-axis.</p></dd>
 <dd><p>Optional named integer vector mapping station_date
 column names to number of samples. If provided, <code>n = X</code> is appended
 to each x-axis label.</p></dd>
+
+
+<dt id="arg-phyto-groups">phyto_groups<a class="anchor" aria-label="anchor" href="#arg-phyto-groups"></a></dt>
+<dd><p>Optional data frame with columns <code>name</code> and
+<code>phyto_group</code> (as built from <code><a href="assign_phyto_groups.html">assign_phyto_groups()</a></code>). If
+provided, taxa are ordered by phytoplankton group and alphabetically
+within each group; otherwise by total biovolume (descending).</p></dd>
 
 </dl></div>
     <div class="section level2">
