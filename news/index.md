@@ -4,6 +4,11 @@
 
 ### Minor improvements and fixes
 
+- The “unclassified” classifier category is no longer passed to the LLM
+  prompts, so generated station descriptions and cruise summaries no
+  longer describe it as a dominant taxon. Totals, percentages and group
+  breakdowns in the text are computed from classified taxa only; figures
+  and tables still include the class.
 - CTD fluorescence profiles now use a fixed 0-10 µg/L chlorophyll scale
   shared by all basins so profiles are directly comparable. Only when
   any value (CTD fluorescence or same-cruise bottle Chl-a, 0-50 m)
