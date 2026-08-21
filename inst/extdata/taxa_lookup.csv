@@ -1,8 +1,9 @@
-clean_names,name,sflag,AphiaID,HAB,warning_level,italic
+﻿clean_names,name,sflag,AphiaID,HAB,warning_level,italic
 Actinocyclus_spp,Actinocyclus,spp.,148944,FALSE,,TRUE
 Air_bubbles,,,NA,FALSE,,FALSE
 Akashiwo_sanguinea,Akashiwo sanguinea,,232546,TRUE,,TRUE
 Akinete,Cyanophyceae,,146542,FALSE,,FALSE
+Alexandrium_spp,Alexandrium,spp.,109470,TRUE,,TRUE
 Alexandrium_pseudogonyaulax,Alexandrium pseudogonyaulax,,109713,TRUE,,TRUE
 Amphidinium-Katodinium,Dinophyceae,,19542,FALSE,,FALSE
 Amphidinium-Katodinium2,Dinophyceae,,19542,FALSE,,FALSE
@@ -12,13 +13,16 @@ Amylax_triacantha,Amylax triacantha,,110007,FALSE,,TRUE
 Apedinella_radians,Apedinella radians,,248097,FALSE,,TRUE
 Aphanizomenon_flosaquae_bundle,Aphanizomenon flos-aquae,,248099,TRUE,,TRUE
 Aphanizomenon_flosaquae_filament,Aphanizomenon flos-aquae,,248099,TRUE,,TRUE
+Aphanothece_parallelliformis,Aphanothece parallelliformis,,249704,FALSE,,TRUE
 Apocalathium_malmogiense,Apocalathium malmogiense,,1380043,FALSE,,TRUE
 Asterionellopsis_glacialis,Asterionellopsis glacialis,,149139,FALSE,,TRUE
 Asterionellopsis_glacialis_single,Asterionellopsis glacialis,,149139,FALSE,,TRUE
 Attheya_spp,Attheya,spp.,160519,FALSE,,TRUE
 Beads,,,NA,FALSE,,FALSE
 Binuclearia_lauterbornii,Binuclearia lauterbornii,,575737,FALSE,,TRUE
+Blixaea_quinquecornis,Blixaea quinquecornis,,1360848,FALSE,,TRUE
 Calciopappus_sp,Calciopappus,sp.,235858,FALSE,,TRUE
+Centrales_chain,Centrales,,341285,FALSE,,FALSE
 Centrales_single,Centrales,,341285,FALSE,,FALSE
 Cerataulina_pelagica,Cerataulina pelagica,,149619,FALSE,,TRUE
 Chaetoceros_cf_convolutus,Chaetoceros,spp.,148985,FALSE,,TRUE
@@ -74,6 +78,7 @@ Eutreptiella_braarudii,Eutreptiella braarudii,,248121,FALSE,,TRUE
 Eutreptiella_sp,Eutreptiella,sp.,17657,FALSE,,TRUE
 Fragilaria,Fragilaria,spp.,149028,FALSE,,TRUE
 Gephyrocapsa_huxleyi,Gephyrocapsa huxleyi,,236056,FALSE,,TRUE
+Gonyaulax_spp,Gonyaulax,spp.,109519,TRUE,,TRUE
 Guinardia_delicatula,Guinardia delicatula,,149112,FALSE,,TRUE
 Guinardia_flaccida,Guinardia flaccida,,149132,FALSE,,TRUE
 Guinardia_striata,Guinardia striata,,149113,FALSE,,TRUE
@@ -99,6 +104,7 @@ Laboea_strobila,Laboea strobila,,101264,FALSE,,TRUE
 Lauderia_spp,Lauderia,spp.,149134,FALSE,,TRUE
 Lepidodinium-like,Gymnodiniaceae,,109410,FALSE,,FALSE
 Leptocylindrus_danicus,Leptocylindrus danicus,,149106,FALSE,,TRUE
+Leptocylindrus_minimus,Leptocylindrus minimus,,149039,FALSE,,TRUE
 Leptocylindrus_danicus_Leptocylindrus_minimus,Leptocylindrus,spp.,149038,FALSE,,TRUE
 Licmophora_spp,Licmophora,spp.,149342,FALSE,,TRUE
 Lingulaulax_polyedra,Lingulaulax polyedra,,1778370,TRUE,,TRUE
@@ -144,6 +150,7 @@ Pseudopedinella-like,Actinomonadaceae,,1652121,FALSE,,FALSE
 Pseudosolenia_calcar-avis,Pseudosolenia calcar-avis,,163344,FALSE,,TRUE
 Pyramimonas_spp_large,Pyramimonas,spp.,134529,FALSE,,TRUE
 Pyramimonas_spp_small,Pyramimonas,spp.,134529,FALSE,,TRUE
+Pyrocystis_cf_lunula,Pyrocystis,spp.,109571,FALSE,,TRUE
 Rhizosolenia_imbricata,Rhizosolenia imbricata,,149116,FALSE,,TRUE
 Rhizosolenia_spp,Rhizosolenia,spp.,149069,FALSE,,TRUE
 Scenedesmus_spp,Scenedesmus,spp.,160602,FALSE,,TRUE
@@ -155,6 +162,7 @@ Snowella_Woronichinia,Cyanophyceae,,146542,FALSE,,FALSE
 Stephanopyxis-like,Stephanopyxidaceae,,149254,FALSE,,FALSE
 Striatella_spp,Striatella,spp.,149176,FALSE,,TRUE
 Strombidium-like,Strombidiidae,,1703,FALSE,,FALSE
+Sundstroemia_pungens,Sundstroemia pungens,,1590708,FALSE,,TRUE
 Sundstroemia_setigera,Sundstroemia setigera,,1590706,FALSE,,TRUE
 Thalassionema_nitzschioides,Thalassionema nitzschioides,,149093,FALSE,,TRUE
 Thalassiosira_angulata,Thalassiosira angulata,,148913,FALSE,,TRUE
