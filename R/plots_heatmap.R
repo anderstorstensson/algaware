@@ -128,7 +128,12 @@ create_heatmap <- function(wide_summary, taxa_lookup = NULL, title = "",
   # The colour is embedded as markdown rather than passed as a per-label
   # colour vector to axis.text.y: with one facet panel per group each panel
   # draws its own axis and the vector no longer lines up with the labels.
-  base_labels <- format_taxon_labels(species_order, taxa_lookup, format = "plain")
+  # Every label (not only the HAB ones) is rendered by gridtext, so literal
+  # "<", ">" and "&" in a name -- e.g. a hand-typed custom class "Foo <sp>" --
+  # must be escaped or gridtext aborts on the unknown tag.
+  base_labels <- escape_markdown_label(
+    format_taxon_labels(species_order, taxa_lookup, format = "plain")
+  )
   display_labels <- ifelse(
     species_order %in% hab_species,
     paste0("<span style='color:red'>", base_labels, "*</span>"),
@@ -373,4 +378,20 @@ create_stacked_bar <- function(wide_summary, taxa_lookup = NULL,
   }
 
   p
+}
+
+
+#' Escape text for use inside a ggtext markdown label
+#'
+#' Replaces \code{&}, \code{<} and \code{>} with their HTML entities so an
+#' arbitrary taxon name can be embedded in \code{ggtext::element_markdown()}
+#' labels without being parsed as markup.
+#'
+#' @param x Character vector.
+#' @return Character vector of the same length, escaped.
+#' @keywords internal
+escape_markdown_label <- function(x) {
+  x <- gsub("&", "&amp;", x, fixed = TRUE)
+  x <- gsub("<", "&lt;", x, fixed = TRUE)
+  gsub(">", "&gt;", x, fixed = TRUE)
 }

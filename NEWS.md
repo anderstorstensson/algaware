@@ -1,4 +1,4 @@
-# algaware (development version)
+# algaware 0.3.0
 
 ## New features
 
@@ -22,7 +22,6 @@
   warning lists the affected bins with station names and image counts,
   points to the Samples tab for exclusion, and stays on screen until closed
   so it is not missed while working elsewhere in the app.
-
 - The report heatmaps now show which phytoplankton group each row belongs
   to: rows are split into one panel per group (Diatoms, Dinoflagellates,
   Cyanobacteria, Cryptophytes, Ciliates, Silicoflagellates, Other) with a
@@ -38,6 +37,17 @@
   (`STATION (n = X)` over the date) so they no longer overlap.
 
 ## Minor improvements and fixes
+
+- Loading a new cruise now clears the corrections log, custom classes and
+  gallery selection from the previous cruise. Before, corrections made on
+  one cruise were carried into the next cruise loaded in the same session and
+  ended up mixed into its exported and auto-saved corrections file.
+- Station descriptions no longer fall back to the "(LLM generation failed)"
+  placeholder when every image at a visit is unclassified (e.g. a near-empty
+  cleaning-cycle bin); the prompt now states that no classified taxa were
+  recorded.
+- Heatmap row labels are HTML-escaped, so a custom class name containing
+  `<`, `>` or `&` no longer aborts report generation.
 
 - The "unclassified" classifier category is no longer passed to the LLM
   prompts, so generated station descriptions and cruise summaries no longer

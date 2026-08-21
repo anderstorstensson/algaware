@@ -571,6 +571,7 @@ mod_data_loader_server <- function(id, config, rv) {
           rv$taxa_lookup <- proc$taxa_lookup
           rv$classifier_name <- proc$classifier_name
           rv$excluded_samples <- character(0)
+          reset_corrections_state(rv)
           rv$frontpage_baltic_mosaic <- NULL
           rv$frontpage_westcoast_mosaic <- NULL
 
@@ -660,4 +661,27 @@ mod_data_loader_server <- function(id, config, rv) {
       })
     })
   })
+}
+
+
+#' Reset per-cruise validation state
+#'
+#' Clears the corrections log, user-added custom classes and the gallery
+#' selection when new data is loaded, so corrections made on one cruise are
+#' never carried into -- and exported or auto-saved together with -- the next
+#' cruise loaded in the same session. Column structure is preserved.
+#'
+#' @param rv \code{shiny::reactiveValues} (or a list-like object) holding
+#'   \code{corrections}, \code{custom_classes} and \code{selected_images}.
+#' @return \code{rv}, invisibly, after modification.
+#' @keywords internal
+reset_corrections_state <- function(rv) {
+  if (!is.null(rv$corrections)) {
+    rv$corrections <- rv$corrections[0, , drop = FALSE]
+  }
+  if (!is.null(rv$custom_classes)) {
+    rv$custom_classes <- rv$custom_classes[0, , drop = FALSE]
+  }
+  rv$selected_images <- character(0)
+  invisible(rv)
 }

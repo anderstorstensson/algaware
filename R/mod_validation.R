@@ -752,6 +752,14 @@ mod_validation_server <- function(id, rv, config) {
       do_autosave()
     }, ignoreInit = TRUE)
 
+    # A newly loaded cruise starts a fresh corrections log (see
+    # reset_corrections_state()), so forget what was last written: the next
+    # save must not compare against the previous cruise's rows, and it sets
+    # the file from that cruise aside as ..._prev.csv instead of overwriting.
+    shiny::observeEvent(rv$matched_metadata_all, {
+      autosave_last <<- NULL
+    }, ignoreInit = TRUE)
+
     # Flush on clean session end so work done in the last visited class is
     # not lost when the app is closed without downloading. Does not fire on
     # a crash -- that is what the per-class-navigation saves are for.

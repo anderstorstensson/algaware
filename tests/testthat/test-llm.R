@@ -1075,3 +1075,27 @@ test_that("unclassified does not suppress bloom alerts by diluting biovolume", {
   note <- bloom_alert_note(df, groups, lang = "en")
   expect_true(grepl("SPRING BLOOM", note, fixed = TRUE))
 })
+
+test_that("attach_text_groups tolerates a zero-row data frame", {
+  df <- make_unclass_station()[0, ]
+  out <- attach_text_groups(df, phyto_groups = NULL)
+  expect_equal(nrow(out), 0)
+  expect_true(all(c("detailed_group", "text_group") %in% names(out)))
+  expect_null(attach_text_groups(NULL))
+})
+
+test_that("format_station_data_for_prompt handles a visit with only unclassified images", {
+  df <- make_unclass_station()[1, ]
+  expect_equal(tolower(df$name), "unclassified")
+  out <- algaware:::format_station_data_for_prompt(df)
+  expect_type(out, "character")
+  expect_match(out, "ANHOLT E")
+  expect_match(out, "No classified phytoplankton taxa")
+  expect_no_match(out, "Top taxa")
+})
+
+test_that("bloom_alert_note and cruise summary survive an all-unclassified input", {
+  df <- make_unclass_station()[1, ]
+  expect_no_error(algaware:::format_cruise_summary_for_prompt(df))
+  expect_no_error(algaware:::bloom_alert_note(df))
+})
