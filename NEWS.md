@@ -23,6 +23,16 @@
   points to the Samples tab for exclusion, and stays on screen until closed
   so it is not missed while working elsewhere in the app.
 
+- The report heatmaps now show which phytoplankton group each row belongs
+  to: rows are split into one panel per group (Diatoms, Dinoflagellates,
+  Cyanobacteria, Cryptophytes, Ciliates, Silicoflagellates, Other) with a
+  coloured group label on the left, using the same colours as the pie-chart
+  group map. Ciliates are grouped together in the heatmap -- including
+  *Mesodinium*, which keeps its own slice in the pie charts -- via a new
+  `Ciliates` group (phylum Ciliophora) in `inst/config/phyto_groups.yaml`.
+  Note that SHARK4R applies the custom groups in YAML order with later rules
+  overwriting earlier matches, so broad rules must come before specific ones.
+
 ## Minor improvements and fixes
 
 - The "unclassified" classifier category is no longer passed to the LLM
