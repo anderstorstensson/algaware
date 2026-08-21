@@ -356,6 +356,51 @@ create_chl_timeseries <- function(station_lims, station_stats,
   p
 }
 
+#' Compute the shared x-axis limit for CTD fluorescence profiles
+#'
+#' Returns a fixed 0\enc{–}{-}10 \enc{µ}{u}g/L scale unless any chlorophyll
+#' value (CTD fluorescence or same-cruise bottle CPHL, 0\enc{–}{-}50 m)
+#' across the \emph{entire} dataset exceeds 10 \enc{µ}{u}g/L.  In that
+#' unusual case the scale becomes dynamic (5\% headroom above the maximum),
+#' and because it is computed from the full dataset every region figure
+#' inherits the same limits.
+#'
+#' @param ctd_data_full Data frame from \code{read_cnv_folder_all()} covering
+#'   all regions.
+#' @param lims_data_full Data frame from \code{read_lims_data_all()}, or NULL.
+#' @return Numeric length-2 vector of x-axis limits.
+#' @keywords internal
+compute_profile_xlim <- function(ctd_data_full, lims_data_full = NULL) {
+  fixed_max <- 10
+
+  in_depth <- !is.na(ctd_data_full$pressure_dbar) &
+    ctd_data_full$pressure_dbar <= 50
+  max_chl <- suppressWarnings(
+    max(ctd_data_full$chl_fluorescence[in_depth], na.rm = TRUE)
+  )
+
+  # Bottle points shown on the profiles: depth <= 50 m and sampled on a
+  # cruise date (same filter as the per-station overlay, but dataset-wide).
+  if (!is.null(lims_data_full) && nrow(lims_data_full) > 0) {
+    cruise_dates <- unique(
+      ctd_data_full$sample_date[!is.na(ctd_data_full$sample_date)]
+    )
+    lims_profile <- lims_data_full[
+      !is.na(lims_data_full$DEPH) & lims_data_full$DEPH <= 50 &
+        lims_data_full$sample_date %in% cruise_dates, ]
+    if (nrow(lims_profile) > 0) {
+      max_cphl <- suppressWarnings(max(lims_profile$CPHL, na.rm = TRUE))
+      if (is.finite(max_cphl)) max_chl <- max(max_chl, max_cphl, na.rm = TRUE)
+    }
+  }
+
+  if (!is.finite(max_chl) || max_chl <= fixed_max) {
+    c(0, fixed_max)
+  } else {
+    c(0, max_chl * 1.05)
+  }
+}
+
 #' Create a regional CTD composite figure (all standard stations)
 #'
 #' Produces a multi-station patchwork figure for one geographic region.
@@ -428,17 +473,12 @@ create_ctd_region_figure <- function(ctd_data_full, lims_data_full = NULL,
     NULL
   }
 
-  # Shared x-limit for profiles: span both CTD fluorescence and bottle CPHL
-  # so both data series are visible on a common axis.
-  max_chl <- max(region_ctd$chl_fluorescence[
-    region_ctd$pressure_dbar <= 50], na.rm = TRUE)
-  if (has_lims && !is.null(region_lims_profile) &&
-      nrow(region_lims_profile) > 0) {
-    max_cphl <- max(region_lims_profile$CPHL, na.rm = TRUE)
-    if (is.finite(max_cphl)) max_chl <- max(max_chl, max_cphl)
-  }
-  if (!is.finite(max_chl) || max_chl <= 0) max_chl <- 10
-  xlim_profile <- c(0, max_chl * 1.05)
+  # Shared x-limit for profiles: fixed 0-10 ug/L so profiles are comparable
+  # across basins.  Only when any value (CTD fluorescence or same-cruise
+  # bottle CPHL, 0-50 m) exceeds 10 does the axis grow -- and then it is
+  # computed from the FULL dataset (all regions), so every region figure
+  # inherits the same dynamic scale.
+  xlim_profile <- compute_profile_xlim(ctd_data_full, lims_data_full)
 
   plots <- list()
 
