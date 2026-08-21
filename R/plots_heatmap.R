@@ -84,6 +84,9 @@ order_taxa_by_group <- function(scientific_names, phyto_groups) {
 create_heatmap <- function(wide_summary, taxa_lookup = NULL, title = "",
                            sample_counts = NULL, phyto_groups = NULL) {
   station_date_order <- names(wide_summary)[-1]
+  # Beyond ~8 station visits the 45-degree, three-line labels overlap at the
+  # report's figure width; switch to compact vertical two-line labels.
+  many_cols <- length(station_date_order) > 8
 
   long_data <- tidyr::pivot_longer(
     wide_summary,
@@ -121,15 +124,17 @@ create_heatmap <- function(wide_summary, taxa_lookup = NULL, title = "",
   hab_species <- get_hab_species(taxa_lookup)
   hab_in_plot <- intersect(species_order, hab_species)
 
-  # Build y-axis labels: plain text with sflag, asterisk suffix for HAB
+  # Build y-axis labels: plain text with sflag, red asterisk suffix for HAB.
+  # The colour is embedded as markdown rather than passed as a per-label
+  # colour vector to axis.text.y: with one facet panel per group each panel
+  # draws its own axis and the vector no longer lines up with the labels.
   base_labels <- format_taxon_labels(species_order, taxa_lookup, format = "plain")
   display_labels <- ifelse(
     species_order %in% hab_species,
-    paste0(base_labels, "*"),
+    paste0("<span style='color:red'>", base_labels, "*</span>"),
     base_labels
   )
   names(display_labels) <- species_order
-  label_colors <- ifelse(species_order %in% hab_species, "red", "black")
 
   long_data$scientific_name <- factor(long_data$scientific_name,
                                       levels = species_order)
@@ -141,18 +146,7 @@ create_heatmap <- function(wide_summary, taxa_lookup = NULL, title = "",
   )) +
     ggplot2::geom_tile(color = "white") +
     ggplot2::scale_x_discrete(
-      labels = function(x) {
-        base <- sub("_", "\n", x)
-        if (!is.null(sample_counts)) {
-          n <- sample_counts[x]
-          base <- ifelse(
-            !is.na(n),
-            paste0(base, "\nn = ", n),
-            base
-          )
-        }
-        base
-      }
+      labels = function(x) heatmap_x_labels(x, sample_counts, many_cols)
     ) +
     ggplot2::scale_y_discrete(labels = display_labels) +
     ggplot2::scale_fill_viridis_c(option = "viridis", na.value = "grey90") +
@@ -161,13 +155,28 @@ create_heatmap <- function(wide_summary, taxa_lookup = NULL, title = "",
                   title = title) +
     ggplot2::theme_minimal(base_size = 12) +
     ggplot2::theme(
-      axis.text.x = ggplot2::element_text(
-        angle = 45, hjust = 1, vjust = 1, lineheight = 0.9, size = 9
-      ),
-      axis.text.y = ggplot2::element_text(size = 10, color = label_colors),
+      axis.text.x = if (many_cols) {
+        ggplot2::element_text(angle = 90, hjust = 1, vjust = 0.5,
+                              lineheight = 0.9, size = 8)
+      } else {
+        ggplot2::element_text(angle = 45, hjust = 1, vjust = 1,
+                              lineheight = 0.9, size = 9)
+      },
+      # axis.text.y.left is set explicitly: ggplot2 >= 4.0 defines it in the
+      # base themes, so a markdown element on axis.text.y alone is shadowed.
+      axis.text.y.left = ggtext::element_markdown(size = 10),
       panel.grid = ggplot2::element_blank(),
-      plot.caption = ggtext::element_markdown()
-    )
+      plot.caption = ggtext::element_markdown(),
+      # Horizontal colourbar above the panels leaves the full page width
+      # for the station columns, which get squeezed when many visits are
+      # shown alongside the group strips.
+      legend.position = "top",
+      legend.direction = "horizontal",
+      legend.title = ggplot2::element_text(vjust = 0.85),
+      legend.key.width = ggplot2::unit(1.1, "cm"),
+      legend.key.height = ggplot2::unit(0.35, "cm")
+    ) +
+    ggplot2::guides(fill = ggplot2::guide_colourbar(title.position = "left"))
 
   if (use_groups) {
     p <- p + heatmap_group_facets(group_levels)
@@ -180,6 +189,29 @@ create_heatmap <- function(wide_summary, taxa_lookup = NULL, title = "",
   }
 
   p
+}
+
+#' Build heatmap x-axis labels from station_date keys
+#'
+#' @param x Character vector of \code{"STATION_YYYY-MM-DD"} keys.
+#' @param sample_counts Optional named integer vector of sample counts keyed
+#'   by \code{x}.
+#' @param compact If \code{TRUE}, two lines: \code{"STATION (n = X)"} over
+#'   the date (for vertical labels when many visits are shown); otherwise
+#'   station, date and \code{"n = X"} on three lines.
+#' @return Character vector of labels.
+#' @keywords internal
+heatmap_x_labels <- function(x, sample_counts = NULL, compact = FALSE) {
+  station <- sub("_.*$", "", x)
+  date <- sub("^.*_", "", x)
+  n <- if (is.null(sample_counts)) rep(NA, length(x)) else unname(sample_counts[x])
+  if (compact) {
+    first <- ifelse(!is.na(n), paste0(station, " (n = ", n, ")"), station)
+    paste0(first, "\n", date)
+  } else {
+    base <- paste0(station, "\n", date)
+    ifelse(!is.na(n), paste0(base, "\nn = ", n), base)
+  }
 }
 
 #' Facet layers that draw coloured group strips on the heatmap

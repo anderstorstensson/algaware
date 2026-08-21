@@ -311,3 +311,37 @@ test_that("phyto_group_colors covers all heatmap and pie groups", {
                     "Cryptophytes", "Mesodinium spp.", "Ciliates",
                     "Silicoflagellates", "Other") %in% names(pal)))
 })
+
+test_that("heatmap_x_labels builds three-line and compact two-line labels", {
+  x <- c("BY31_2026-08-01", "ANHOLT E_2026-08-02")
+  n <- c(`BY31_2026-08-01` = 3L)
+  expect_equal(algaware:::heatmap_x_labels(x),
+               c("BY31\n2026-08-01", "ANHOLT E\n2026-08-02"))
+  expect_equal(algaware:::heatmap_x_labels(x, n),
+               c("BY31\n2026-08-01\nn = 3", "ANHOLT E\n2026-08-02"))
+  expect_equal(algaware:::heatmap_x_labels(x, n, compact = TRUE),
+               c("BY31 (n = 3)\n2026-08-01", "ANHOLT E\n2026-08-02"))
+})
+
+test_that("create_heatmap colours HAB labels via markdown, not a colour vector", {
+  wide <- data.frame(
+    scientific_name = c("Dinophysis", "Skeletonema", "Attheya"),
+    `STN1_2022-01-01` = c(1, 2, 3),
+    check.names = FALSE,
+    stringsAsFactors = FALSE
+  )
+  taxa <- data.frame(name = c("Dinophysis", "Skeletonema", "Attheya"),
+                     HAB = c(TRUE, FALSE, FALSE))
+  groups <- data.frame(
+    name = c("Dinophysis", "Skeletonema", "Attheya"),
+    phyto_group = c("Dinoflagellates", "Diatoms", "Diatoms"),
+    stringsAsFactors = FALSE
+  )
+  p <- create_heatmap(wide, taxa_lookup = taxa, phyto_groups = groups)
+  labels <- p$scales$get_scales("y")$labels
+  expect_match(labels[["Dinophysis"]], "color:red.*Dinophysis\\*")
+  expect_false(grepl("red", labels[["Attheya"]]))
+  expect_false(grepl("red", labels[["Skeletonema"]]))
+  expect_s3_class(p$theme$axis.text.y.left, "element_markdown")
+  expect_equal(p$theme$legend.position, "top")
+})
