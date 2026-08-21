@@ -106,6 +106,11 @@ get_region_context <- function(rv) {
 #'     unclassified (session-only)
 #' }
 #'
+#' As crash protection, the corrections log is also auto-saved to
+#' \code{<local_storage_path>/corrections/} (same CSV format as "Download
+#' corrections") whenever the user navigates to another class or region and
+#' on clean session end; see \code{autosave_corrections()}.
+#'
 #' @param id Module namespace ID.
 #' @param rv Reactive values for app state.
 #' @param config Reactive values with settings.
@@ -677,37 +682,20 @@ mod_validation_server <- function(id, rv, config) {
       inv_rows <- df[df$new_class == "unclassified", ]
       rv$invalidated_classes <- unique(inv_rows$original_class)
 
-      # Re-add any custom classes embedded in the export
-      custom_cols <- c("custom_sci_name", "custom_sflag",
-                       "custom_aphia_id", "custom_hab", "custom_italic")
-      if (all(custom_cols %in% names(df))) {
-        custom_rows <- df[!is.na(df$custom_sci_name), ]
-        custom_rows <- custom_rows[!duplicated(custom_rows$new_class), ]
-        if (nrow(custom_rows) > 0) {
-          all_known <- c(
-            rv$class_list,
-            if (!is.null(rv$taxa_lookup)) rv$taxa_lookup$clean_names,
-            rv$custom_classes$clean_names
-          )
-          new_custom <- custom_rows[!custom_rows$new_class %in% all_known, ]
-          if (nrow(new_custom) > 0) {
-            added <- data.frame(
-              clean_names = new_custom$new_class,
-              name        = new_custom$custom_sci_name,
-              sflag       = ifelse(is.na(new_custom$custom_sflag), "",
-                                   new_custom$custom_sflag),
-              AphiaID     = as.integer(new_custom$custom_aphia_id),
-              HAB         = as.logical(new_custom$custom_hab),
-              italic      = as.logical(new_custom$custom_italic),
-              is_diatom   = FALSE,
-              stringsAsFactors = FALSE
-            )
-            rv$custom_classes <- rbind(rv$custom_classes, added)
-            rv$relabel_choices <- build_relabel_choices(
-              rv$class_list, rv$taxa_lookup, rv$custom_classes
-            )
-          }
-        }
+      # Re-add any custom classes embedded in the export (including the
+      # is_diatom flag; files from before that column existed import with
+      # is_diatom = FALSE)
+      all_known <- c(
+        rv$class_list,
+        if (!is.null(rv$taxa_lookup)) rv$taxa_lookup$clean_names,
+        rv$custom_classes$clean_names
+      )
+      added <- custom_classes_from_corrections(df, all_known)
+      if (nrow(added) > 0) {
+        rv$custom_classes <- rbind(rv$custom_classes, added)
+        rv$relabel_choices <- build_relabel_choices(
+          rv$class_list, rv$taxa_lookup, rv$custom_classes
+        )
       }
 
       rv$summaries_stale <- TRUE
@@ -721,6 +709,54 @@ mod_validation_server <- function(id, rv, config) {
                       " row(s) did not match any image in this dataset.")
       }
       shiny::showNotification(msg, type = "message", duration = 6)
+    })
+
+    # ---- 7. Auto-save corrections (crash protection) ----
+    # Every time the user navigates to another class or region, write the
+    # corrections log to <local_storage_path>/corrections/ -- the same
+    # enriched CSV as "Download corrections", so a session lost to a crash
+    # (or closed without downloading) can be restored with "Import
+    # corrections". Saves only when the log changed since the last write;
+    # a failed write warns once per session and never blocks validation.
+    autosave_last <- NULL
+    autosave_warned <- FALSE
+
+    do_autosave <- function(notify = TRUE) {
+      if (!isTRUE(rv$data_loaded)) return(invisible(NULL))
+      corrections <- rv$corrections
+      if (is.null(corrections) || nrow(corrections) == 0 ||
+          identical(corrections, autosave_last)) {
+        return(invisible(NULL))
+      }
+
+      # First save of this session: an existing file on disk is from an
+      # earlier session (possibly the crash being recovered from), so have
+      # the helper set it aside as ..._prev.csv instead of clobbering it.
+      result <- autosave_corrections(corrections, rv$custom_classes,
+                                     config$local_storage_path,
+                                     backup_existing = is.null(autosave_last))
+      if (result$success) {
+        autosave_last <<- corrections
+      } else if (notify && !autosave_warned && !is.null(result$error)) {
+        autosave_warned <<- TRUE
+        shiny::showNotification(
+          paste0("Auto-save of corrections failed: ", result$error,
+                 ". Use 'Download corrections' to save your work manually."),
+          type = "warning", duration = 10
+        )
+      }
+      invisible(NULL)
+    }
+
+    shiny::observeEvent(list(rv$current_class_idx, rv$current_region), {
+      do_autosave()
+    }, ignoreInit = TRUE)
+
+    # Flush on clean session end so work done in the last visited class is
+    # not lost when the app is closed without downloading. Does not fire on
+    # a crash -- that is what the per-class-navigation saves are for.
+    session$onSessionEnded(function() {
+      shiny::isolate(do_autosave(notify = FALSE))
     })
 
     # ---- Status display (sidebar summary of corrections) ----

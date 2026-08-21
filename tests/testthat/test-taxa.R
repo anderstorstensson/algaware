@@ -180,6 +180,80 @@ test_that("enrich_corrections_for_export returns unchanged when no matches", {
   expect_true(is.na(result$custom_sci_name))
 })
 
+test_that("enrich_corrections_for_export carries the is_diatom flag", {
+  corrections <- data.frame(
+    new_class = c("MyDiatom", "SomeTaxon"),
+    stringsAsFactors = FALSE
+  )
+  custom_classes <- data.frame(
+    clean_names = "MyDiatom", name = "My diatom", sflag = "",
+    AphiaID = 1L, HAB = FALSE, italic = TRUE, is_diatom = TRUE,
+    stringsAsFactors = FALSE
+  )
+  result <- algaware:::enrich_corrections_for_export(corrections, custom_classes)
+  expect_true(result$custom_is_diatom[result$new_class == "MyDiatom"])
+  expect_true(is.na(result$custom_is_diatom[result$new_class == "SomeTaxon"]))
+})
+
+# -- custom_classes_from_corrections -----------------------------------------
+
+make_import_df <- function(is_diatom = NULL) {
+  df <- data.frame(
+    sample_name = "samp1", roi_number = 1L,
+    original_class = "ClassA", new_class = "MyAlga",
+    custom_sci_name = "My alga", custom_sflag = "spp.",
+    custom_aphia_id = 42L, custom_hab = TRUE, custom_italic = TRUE,
+    stringsAsFactors = FALSE
+  )
+  if (!is.null(is_diatom)) df$custom_is_diatom <- is_diatom
+  df
+}
+
+test_that("custom_classes_from_corrections rebuilds a custom class", {
+  result <- algaware:::custom_classes_from_corrections(
+    make_import_df(is_diatom = TRUE), known_classes = character(0)
+  )
+  expect_equal(nrow(result), 1L)
+  expect_equal(result$clean_names, "MyAlga")
+  expect_equal(result$name, "My alga")
+  expect_equal(result$AphiaID, 42L)
+  expect_true(result$HAB)
+  expect_true(result$is_diatom)
+})
+
+test_that("custom_classes_from_corrections defaults is_diatom to FALSE for old files", {
+  # Files written before the custom_is_diatom column existed
+  result <- algaware:::custom_classes_from_corrections(
+    make_import_df(is_diatom = NULL), known_classes = character(0)
+  )
+  expect_equal(nrow(result), 1L)
+  expect_false(result$is_diatom)
+
+  # NA values (e.g. an all-NA column read as logical) also default to FALSE
+  result <- algaware:::custom_classes_from_corrections(
+    make_import_df(is_diatom = NA), known_classes = character(0)
+  )
+  expect_false(result$is_diatom)
+})
+
+test_that("custom_classes_from_corrections skips known classes and plain files", {
+  result <- algaware:::custom_classes_from_corrections(
+    make_import_df(is_diatom = TRUE), known_classes = "MyAlga"
+  )
+  expect_equal(nrow(result), 0L)
+
+  # Corrections files without any custom columns (hand-made 4-column CSV)
+  plain <- data.frame(
+    sample_name = "samp1", roi_number = 1L,
+    original_class = "ClassA", new_class = "ClassB",
+    stringsAsFactors = FALSE
+  )
+  result <- algaware:::custom_classes_from_corrections(
+    plain, known_classes = character(0)
+  )
+  expect_equal(nrow(result), 0L)
+})
+
 test_that("merge_custom_taxa returns taxa_lookup unchanged with no custom", {
   taxa <- data.frame(
     clean_names = "X", name = "X", AphiaID = 1L,

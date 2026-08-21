@@ -14,7 +14,7 @@ enrich_corrections_for_export(corrections, custom_classes)
 \value{
 \code{corrections} with extra columns \code{custom_sci_name},
 \code{custom_sflag}, \code{custom_aphia_id}, \code{custom_hab},
-\code{custom_italic}.
+\code{custom_italic}, \code{custom_is_diatom}.
 }
 \description{
 Appends columns describing any custom class referenced in the
