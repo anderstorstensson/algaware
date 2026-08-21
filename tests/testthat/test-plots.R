@@ -345,3 +345,26 @@ test_that("create_heatmap colours HAB labels via markdown, not a colour vector",
   expect_s3_class(p$theme$axis.text.y.left, "element_markdown")
   expect_equal(p$theme$legend.position, "top")
 })
+
+test_that("escape_markdown_label escapes HTML-significant characters", {
+  expect_equal(escape_markdown_label(c("Foo <sp>", "A & B", "x>y", "plain")),
+               c("Foo &lt;sp&gt;", "A &amp; B", "x&gt;y", "plain"))
+})
+
+test_that("create_heatmap renders taxon names containing angle brackets", {
+  wide <- data.frame(
+    scientific_name = c("Baz <sp>", "Normal Taxon"),
+    `STN1_2022-01-01` = c(10, 20),
+    check.names = FALSE,
+    stringsAsFactors = FALSE
+  )
+  taxa <- data.frame(
+    name = c("Baz <sp>", "Normal Taxon"),
+    HAB = c(TRUE, FALSE),
+    stringsAsFactors = FALSE
+  )
+  p <- create_heatmap(wide, taxa_lookup = taxa, title = "Escape Test")
+  tmp <- withr::local_tempfile(fileext = ".png")
+  expect_no_error(ggplot2::ggsave(tmp, p, width = 5, height = 4, dpi = 50))
+  expect_true(file.exists(tmp))
+})
