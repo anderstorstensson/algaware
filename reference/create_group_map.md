@@ -4,7 +4,8 @@ Thin AlgAware-specific wrapper around
 [`create_pie_map`](https://sharksmhi.github.io/SHARK4R/reference/create_pie_map.html).
 Draws a pie chart at each station showing the relative carbon biomass
 contributed by Diatoms, Dinoflagellates, Cyanobacteria, Cryptophytes,
-Mesodinium spp., Silicoflagellates, and Other.
+Mesodinium spp., Silicoflagellates, and Other. Any other group (e.g.
+"Ciliates") is folded into "Other".
 
 ## Usage
 

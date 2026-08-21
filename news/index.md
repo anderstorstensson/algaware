@@ -15,10 +15,12 @@
   session sets any autosave left by an earlier session aside as
   `algaware_corrections_<date>_prev.csv`, so starting to validate after
   a restart cannot overwrite the file you are trying to recover.
+
 - Corrections exports now include the `custom_is_diatom` column, so a
   re-imported custom class keeps its “Is diatom” flag (it previously
   came back as not-a-diatom). Older corrections files without the column
   still import fine, with `is_diatom` defaulting to `FALSE` as before.
+
 - After loading data, the app now warns about near-empty bins (fewer
   than 20 images), which are typically end-of-cruise IFCB cleaning-cycle
   samples of distilled water that happen to coincide with an AlgAware
@@ -26,6 +28,21 @@
   image counts, points to the Samples tab for exclusion, and stays on
   screen until closed so it is not missed while working elsewhere in the
   app.
+
+- The report heatmaps now show which phytoplankton group each row
+  belongs to: rows are split into one panel per group (Diatoms,
+  Dinoflagellates, Cyanobacteria, Cryptophytes, Ciliates,
+  Silicoflagellates, Other) with a coloured group label on the left,
+  using the same colours as the pie-chart group map. Ciliates are
+  grouped together in the heatmap – including *Mesodinium*, which keeps
+  its own slice in the pie charts – via a new `Ciliates` group (phylum
+  Ciliophora) in `inst/config/phyto_groups.yaml`. Note that SHARK4R
+  applies the custom groups in YAML order with later rules overwriting
+  earlier matches, so broad rules must come before specific ones. To
+  make room for the group labels, the biovolume colour bar now sits
+  horizontally above the heatmap, and with more than eight station
+  visits the x-axis labels switch to a compact vertical two-line form
+  (`STATION (n = X)` over the date) so they no longer overlap.
 
 ### Minor improvements and fixes
 

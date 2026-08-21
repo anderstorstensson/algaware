@@ -1,6 +1,9 @@
 # Create a heatmap of biovolume by species and station
 
 HAB species are marked with a red asterisk (\*) on the y-axis labels.
+When `phyto_groups` is supplied, rows are split into one panel per
+phytoplankton group with a coloured group label on the left (colours
+match the pie-chart group map).
 
 ## Usage
 
@@ -41,9 +44,9 @@ create_heatmap(
   Optional data frame with columns `name` and `phyto_group` (as built
   from
   [`assign_phyto_groups()`](https://nodc-sweden.github.io/ifcb-algaware/reference/assign_phyto_groups.md)).
-  If provided, taxa are ordered by phytoplankton group and
-  alphabetically within each group; otherwise by total biovolume
-  (descending).
+  If provided, taxa are grouped into labelled panels by phytoplankton
+  group and ordered alphabetically within each group; otherwise by total
+  biovolume (descending).
 
 ## Value
 

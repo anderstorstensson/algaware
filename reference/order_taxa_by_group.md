@@ -1,10 +1,8 @@
 # Order heatmap taxa by phytoplankton group, then alphabetically
 
-Groups follow the canonical order used elsewhere in AlgAware (Diatoms,
-Dinoflagellates, Cyanobacteria, Cryptophytes, *Mesodinium* spp.,
-Silicoflagellates), then any additional groups alphabetically, with
-"Other" always last. Taxa are sorted alphabetically within each group;
-taxa missing from `phyto_groups` fall into "Other".
+Groups follow
+[`heatmap_group_levels()`](https://nodc-sweden.github.io/ifcb-algaware/reference/heatmap_group_levels.md);
+taxa are sorted alphabetically within each group.
 
 ## Usage
 

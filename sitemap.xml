@@ -107,6 +107,10 @@
 <url><loc>https://nodc-sweden.github.io/ifcb-algaware/reference/get_settings_path.html</loc></url>
 <url><loc>https://nodc-sweden.github.io/ifcb-algaware/reference/get_taxon_rois.html</loc></url>
 <url><loc>https://nodc-sweden.github.io/ifcb-algaware/reference/get_top_taxa.html</loc></url>
+<url><loc>https://nodc-sweden.github.io/ifcb-algaware/reference/heatmap_group_facets.html</loc></url>
+<url><loc>https://nodc-sweden.github.io/ifcb-algaware/reference/heatmap_group_levels.html</loc></url>
+<url><loc>https://nodc-sweden.github.io/ifcb-algaware/reference/heatmap_group_of.html</loc></url>
+<url><loc>https://nodc-sweden.github.io/ifcb-algaware/reference/heatmap_x_labels.html</loc></url>
 <url><loc>https://nodc-sweden.github.io/ifcb-algaware/reference/identify_diatom_classes.html</loc></url>
 <url><loc>https://nodc-sweden.github.io/ifcb-algaware/reference/index.html</loc></url>
 <url><loc>https://nodc-sweden.github.io/ifcb-algaware/reference/init_db_schema.html</loc></url>
@@ -161,6 +165,7 @@
 <url><loc>https://nodc-sweden.github.io/ifcb-algaware/reference/parse_non_bio_classes.html</loc></url>
 <url><loc>https://nodc-sweden.github.io/ifcb-algaware/reference/parse_single_cnv.html</loc></url>
 <url><loc>https://nodc-sweden.github.io/ifcb-algaware/reference/parse_single_cnv_all.html</loc></url>
+<url><loc>https://nodc-sweden.github.io/ifcb-algaware/reference/phyto_group_colors.html</loc></url>
 <url><loc>https://nodc-sweden.github.io/ifcb-algaware/reference/process_classifications.html</loc></url>
 <url><loc>https://nodc-sweden.github.io/ifcb-algaware/reference/read_classifier_name.html</loc></url>
 <url><loc>https://nodc-sweden.github.io/ifcb-algaware/reference/read_cnv_folder.html</loc></url>
