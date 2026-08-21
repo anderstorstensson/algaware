@@ -87,6 +87,28 @@ attach_text_groups <- function(x, phyto_groups = NULL) {
   merged
 }
 
+#' Drop the unclassified class from data destined for LLM text
+#'
+#' The "unclassified" classifier category is kept in figures and tables, but
+#' it is not a taxon and readers of the narrative text are interested in real
+#' taxa only. Without this filter it regularly ranked among the top taxa by
+#' biovolume and was narrated as if it were one.
+#'
+#' @param x Data frame with a \code{name} column (and optionally
+#'   \code{class}).
+#' @return \code{x} without rows whose \code{name}/\code{class} is
+#'   "unclassified" (case-insensitive).
+#' @keywords internal
+drop_unclassified_for_text <- function(x) {
+  if (is.null(x) || nrow(x) == 0) return(x)
+  is_unclass <- rep(FALSE, nrow(x))
+  for (col in intersect(c("name", "class"), names(x))) {
+    vals <- tolower(trimws(as.character(x[[col]])))
+    is_unclass <- is_unclass | (!is.na(vals) & vals == "unclassified")
+  }
+  x[!is_unclass, , drop = FALSE]
+}
+
 #' Build a station-level group summary block for LLM prompts
 #'
 #' @param station_data Station summary rows for one visit, including
@@ -164,6 +186,7 @@ format_station_data_for_prompt <- function(station_data, taxa_lookup = NULL,
                                            unclassified_pct = NULL,
                                            phyto_groups = NULL,
                                            chl_measure = "fluorescence") {
+  station_data <- drop_unclassified_for_text(station_data)
   station_data$.row_id_tmp <- seq_len(nrow(station_data))
   station_data <- attach_text_groups(station_data, phyto_groups)
   station_name <- station_data$STATION_NAME_SHORT[1]
@@ -363,6 +386,7 @@ format_cruise_summary_for_prompt <- function(station_summary, taxa_lookup = NULL
                                              unclassified_fractions = NULL,
                                              phyto_groups = NULL,
                                              chl_measure = "fluorescence") {
+  station_summary <- drop_unclassified_for_text(station_summary)
   station_summary$.row_id_tmp <- seq_len(nrow(station_summary))
   station_summary <- attach_text_groups(station_summary, phyto_groups)
   visits <- unique(station_summary[, c("STATION_NAME_SHORT", "COAST",
