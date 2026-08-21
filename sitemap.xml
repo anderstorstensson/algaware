@@ -77,8 +77,10 @@
 <url><loc>https://nodc-sweden.github.io/ifcb-algaware/reference/download_all_data.html</loc></url>
 <url><loc>https://nodc-sweden.github.io/ifcb-algaware/reference/download_features.html</loc></url>
 <url><loc>https://nodc-sweden.github.io/ifcb-algaware/reference/download_raw_data.html</loc></url>
+<url><loc>https://nodc-sweden.github.io/ifcb-algaware/reference/drop_unclassified_for_text.html</loc></url>
 <url><loc>https://nodc-sweden.github.io/ifcb-algaware/reference/enrich_corrections_for_export.html</loc></url>
 <url><loc>https://nodc-sweden.github.io/ifcb-algaware/reference/ensure_hab_asterisks.html</loc></url>
+<url><loc>https://nodc-sweden.github.io/ifcb-algaware/reference/escape_markdown_label.html</loc></url>
 <url><loc>https://nodc-sweden.github.io/ifcb-algaware/reference/extract_current_year_from_ctd.html</loc></url>
 <url><loc>https://nodc-sweden.github.io/ifcb-algaware/reference/extract_gallery_pngs.html</loc></url>
 <url><loc>https://nodc-sweden.github.io/ifcb-algaware/reference/extract_llm_content.html</loc></url>
@@ -174,6 +176,7 @@
 <url><loc>https://nodc-sweden.github.io/ifcb-algaware/reference/read_lims_data.html</loc></url>
 <url><loc>https://nodc-sweden.github.io/ifcb-algaware/reference/read_lims_data_all.html</loc></url>
 <url><loc>https://nodc-sweden.github.io/ifcb-algaware/reference/read_roi_dimensions.html</loc></url>
+<url><loc>https://nodc-sweden.github.io/ifcb-algaware/reference/reset_corrections_state.html</loc></url>
 <url><loc>https://nodc-sweden.github.io/ifcb-algaware/reference/resolve_class_list.html</loc></url>
 <url><loc>https://nodc-sweden.github.io/ifcb-algaware/reference/resolve_classes.html</loc></url>
 <url><loc>https://nodc-sweden.github.io/ifcb-algaware/reference/resolve_classification_path.html</loc></url>

@@ -11,13 +11,13 @@ Source:
 [`DESCRIPTION`](https://github.com/nodc-sweden/ifcb-algaware/blob/main/DESCRIPTION)
 
 Torstensson A (2026). *algaware: Interactive IFCB Phytoplankton
-Reporting Tool*. R package version 0.2.0.9000,
+Reporting Tool*. R package version 0.3.0,
 <https://nodc-sweden.github.io/ifcb-algaware/>.
 
     @Manual{,
       title = {algaware: Interactive IFCB Phytoplankton Reporting Tool},
       author = {Anders Torstensson},
       year = {2026},
-      note = {R package version 0.2.0.9000},
+      note = {R package version 0.3.0},
       url = {https://nodc-sweden.github.io/ifcb-algaware/},
     }
