@@ -41,3 +41,11 @@ mod_validation_server(id, rv, config)
 ## Value
 
 NULL (side effects only).
+
+## Details
+
+As crash protection, the corrections log is also auto-saved to
+`<local_storage_path>/corrections/` (same CSV format as "Download
+corrections") whenever the user navigates to another class or region and
+on clean session end; see
+[`autosave_corrections()`](https://nodc-sweden.github.io/ifcb-algaware/reference/autosave_corrections.md).

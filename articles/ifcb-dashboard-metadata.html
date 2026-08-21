@@ -126,9 +126,14 @@ footer {
 }
 </style>
 <p>This guide describes how to upload the yearly metadata file to the
-IFCB dashboard so that cruise numbers are correctly assigned to samples.
-This step is required before using the <strong>Cruise</strong> selection
-mode in the standard AlgAware workflow (see <a href="workflow.html">Standard AlgAware Workflow</a>).</p>
+IFCB dashboard so that cruise numbers are correctly assigned to samples
+and missing or faulty sample positions are corrected. This step is
+required before using the <strong>Cruise</strong> selection mode in the
+standard AlgAware workflow (see <a href="workflow.html">Standard
+AlgAware Workflow</a>) — and should always be done before loading data
+in <strong>Date Range</strong> mode too, since the corrected positions
+are needed to match samples with GPS disturbances to their monitoring
+stations.</p>
 <div class="note-box">
 <p><strong>Network requirement:</strong> The IFCB dashboard is hosted on
 an internal SMHI server. You must be connected to the SMHI office
@@ -282,7 +287,10 @@ appears down.</td>
 <td>No cruise number available</td>
 <td>Metadata workflow cannot be resolved in time</td>
 <td>Use <strong>Date Range</strong> selection in the AlgAware app
-instead of <strong>Cruise</strong>.</td>
+instead of <strong>Cruise</strong>. Still upload the latest metadata
+first if at all possible: samples with missing or faulty GPS positions
+are not matched to any station until the corrected positions have been
+uploaded.</td>
 </tr>
 </tbody>
 </table>

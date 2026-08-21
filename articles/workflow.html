@@ -131,6 +131,19 @@ footer {
 /* Secondary (#95a5a6) */
 .badge-secondary        { background: #95a5a6; color: #fff; }
 .badge-outline-secondary { background: #fff; color: #7b8a8b; border: 1.5px solid #95a5a6; }
+/* Warning call-out (matches .warn-box in the metadata vignette) */
+.warn-box {
+  border-left: 4px solid #f39c12;
+  padding: 10px 14px;
+  margin: 12px 0;
+  border-radius: 2px;
+  background: #fef9e7;
+}
+.warn-box strong { color: #c87f0a; }
+@media (prefers-color-scheme: dark) {
+  .warn-box { background: rgba(243, 156, 18, 0.15); }
+  .warn-box strong { color: #f39c12; }
+}
 </style>
 <p>This guide walks through the complete workflow for processing a
 cruise with AlgAware-IFCB, from loading data to generating a finished
@@ -177,6 +190,16 @@ reviewing data: <em>Validate</em> (image gallery), <em>Samples</em>,
 default).</p>
 <div class="float">
 <img src="../reference/figures/screenshot-data-sidebar.png" alt="Data panel in the sidebar"><div class="figcaption">Data panel in the sidebar</div>
+</div>
+<div class="warn-box">
+<p>⚠️ <strong>Always upload metadata to the IFCB Dashboard before
+loading data</strong> — see <a href="ifcb-dashboard-metadata.html">Uploading Metadata to the IFCB
+Dashboard</a>. Besides assigning cruise numbers, the metadata upload
+also corrects missing or faulty sample positions. This matters even in
+<em>Date Range</em> mode, which works without an upload: samples
+affected by GPS disturbances during the cruise have no usable position,
+cannot be matched to a monitoring station, and are silently missed
+unless the metadata has been uploaded first.</p>
 </div>
 <ol style="list-style-type: decimal">
 <li>Choose <strong>Cruise</strong> or <strong>Date Range</strong> using
@@ -373,6 +396,17 @@ and do not require a configured database folder.</p>
 unclassifying only affect the current session. To carry corrections
 forward to the next session, export the corrections log from the Report
 panel and re-import it using <span class="btn-badge badge-secondary">Import corrections</span>.</p>
+</blockquote>
+<blockquote>
+<p><strong>Auto-save:</strong> As a safety net, the corrections log is
+also saved automatically to a <code>corrections/</code> folder inside
+your Local Storage Path — every time you move to another class or
+region, and when you close the app. If the app or computer crashes, or
+you forget to download the corrections before closing, reload the cruise
+and use <span class="btn-badge badge-secondary">Import
+corrections</span> on the auto-saved
+<code>algaware_corrections_&lt;date&gt;.csv</code> to pick up where you
+left off.</p>
 </blockquote>
 <hr>
 </div>
@@ -598,6 +632,14 @@ once you have made corrections — you do not need to generate the report
 first. Save this alongside the report for archiving. You can replay it
 next session using <span class="btn-badge badge-secondary">Import
 corrections</span> in the Validate panel.</p>
+<blockquote>
+<p><strong>Forgot to download?</strong> The same CSV is auto-saved to
+the <code>corrections/</code> folder inside your Local Storage Path as
+you validate, so a crashed or prematurely closed session is not lost —
+see the auto-save note in <a href="#browse-and-validate-images">step
+3</a>. The download button remains the recommended way to archive the
+corrections alongside the report.</p>
+</blockquote>
 <hr>
 </div>
 </div>

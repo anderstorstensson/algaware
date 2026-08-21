@@ -51,6 +51,16 @@ sidebar](../reference/figures/screenshot-data-sidebar.png)
 
 Data panel in the sidebar
 
+⚠️ **Always upload metadata to the IFCB Dashboard before loading data**
+— see [Uploading Metadata to the IFCB
+Dashboard](https://nodc-sweden.github.io/ifcb-algaware/articles/ifcb-dashboard-metadata.md).
+Besides assigning cruise numbers, the metadata upload also corrects
+missing or faulty sample positions. This matters even in *Date Range*
+mode, which works without an upload: samples affected by GPS
+disturbances during the cruise have no usable position, cannot be
+matched to a monitoring station, and are silently missed unless the
+metadata has been uploaded first.
+
 1.  Choose **Cruise** or **Date Range** using the radio buttons.
     - *Cruise*: select the cruise number from the dropdown after
       fetching metadata. For cruise numbers to appear, the yearly
@@ -186,6 +196,14 @@ and do not require a configured database folder.
 > affect the current session. To carry corrections forward to the next
 > session, export the corrections log from the Report panel and
 > re-import it using Import corrections.
+
+> **Auto-save:** As a safety net, the corrections log is also saved
+> automatically to a `corrections/` folder inside your Local Storage
+> Path — every time you move to another class or region, and when you
+> close the app. If the app or computer crashes, or you forget to
+> download the corrections before closing, reload the cruise and use
+> Import corrections on the auto-saved `algaware_corrections_<date>.csv`
+> to pick up where you left off.
 
 ------------------------------------------------------------------------
 
@@ -373,6 +391,13 @@ available at any time once you have made corrections — you do not need
 to generate the report first. Save this alongside the report for
 archiving. You can replay it next session using Import corrections in
 the Validate panel.
+
+> **Forgot to download?** The same CSV is auto-saved to the
+> `corrections/` folder inside your Local Storage Path as you validate,
+> so a crashed or prematurely closed session is not lost — see the
+> auto-save note in [step 3](#browse-and-validate-images). The download
+> button remains the recommended way to archive the corrections
+> alongside the report.
 
 ------------------------------------------------------------------------
 

@@ -1,10 +1,14 @@
 # Uploading Metadata to the IFCB Dashboard
 
 This guide describes how to upload the yearly metadata file to the IFCB
-dashboard so that cruise numbers are correctly assigned to samples. This
-step is required before using the **Cruise** selection mode in the
-standard AlgAware workflow (see [Standard AlgAware
-Workflow](https://nodc-sweden.github.io/ifcb-algaware/articles/workflow.md)).
+dashboard so that cruise numbers are correctly assigned to samples and
+missing or faulty sample positions are corrected. This step is required
+before using the **Cruise** selection mode in the standard AlgAware
+workflow (see [Standard AlgAware
+Workflow](https://nodc-sweden.github.io/ifcb-algaware/articles/workflow.md))
+— and should always be done before loading data in **Date Range** mode
+too, since the corrected positions are needed to match samples with GPS
+disturbances to their monitoring stations.
 
 **Network requirement:** The IFCB dashboard is hosted on an internal
 SMHI server. You must be connected to the SMHI office network or SMHI
@@ -126,7 +130,7 @@ below.
 | Cruise shows as `SVEA_YYYY_NA` | Cruise number not in `cruise_numbers.txt` | Add the cruise number to the end of `cruise_numbers.txt` using a text editor (tab-separated fields). Wait up to one hour for the metadata file to regenerate, then re-upload. |
 | Cruise not listed after upload | Metadata file not yet regenerated | Wait up to one hour and re-upload, or contact the maintainer. |
 | Upload fails / dashboard unreachable | Network or server issue | Check SMHI VPN connection; contact the maintainer if the server appears down. |
-| No cruise number available | Metadata workflow cannot be resolved in time | Use **Date Range** selection in the AlgAware app instead of **Cruise**. |
+| No cruise number available | Metadata workflow cannot be resolved in time | Use **Date Range** selection in the AlgAware app instead of **Cruise**. Still upload the latest metadata first if at all possible: samples with missing or faulty GPS positions are not matched to any station until the corrected positions have been uploaded. |
 
 For persistent issues, contact **Anders Torstensson** (maintainer).
 

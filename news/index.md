@@ -4,6 +4,21 @@
 
 ### New features
 
+- Corrections are now auto-saved as crash protection: whenever you
+  navigate to another class or region (and on closing the app), the
+  corrections CSV – identical to the “Download corrections” export – is
+  written to
+  `<Local Storage Path>/corrections/algaware_corrections_<date>.csv` if
+  anything changed since the last save. After a crash (or after
+  forgetting to download), reload the cruise data and restore the file
+  with the existing “Import corrections” button. The first save of a new
+  session sets any autosave left by an earlier session aside as
+  `algaware_corrections_<date>_prev.csv`, so starting to validate after
+  a restart cannot overwrite the file you are trying to recover.
+- Corrections exports now include the `custom_is_diatom` column, so a
+  re-imported custom class keeps its “Is diatom” flag (it previously
+  came back as not-a-diatom). Older corrections files without the column
+  still import fine, with `is_diatom` defaulting to `FALSE` as before.
 - After loading data, the app now warns about near-empty bins (fewer
   than 20 images), which are typically end-of-cruise IFCB cleaning-cycle
   samples of distilled water that happen to coincide with an AlgAware

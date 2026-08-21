@@ -24,4 +24,4 @@ enrich_corrections_for_export(corrections, custom_classes)
 ## Value
 
 `corrections` with extra columns `custom_sci_name`, `custom_sflag`,
-`custom_aphia_id`, `custom_hab`, `custom_italic`.
+`custom_aphia_id`, `custom_hab`, `custom_italic`, `custom_is_diatom`.

@@ -70,8 +70,24 @@ The corrections log serves two purposes. First, it is an archive record
 of all changes made to the classifier output for a given cruise. Second,
 it can be re-imported in a future session using Import corrections in
 the **Validate** panel — all relabellings and unclassifications will be
-replayed automatically on the freshly loaded data, so you can continue
+replayed automatically on the freshly loaded data, and any custom
+classes referenced in the file are recreated with their metadata
+(scientific name, AphiaID, HAB and diatom flags), so you can continue
 where you left off without repeating the validation work.
+
+### Auto-saved corrections
+
+The same CSV is also written automatically to the `corrections/` folder
+inside your Local Storage Path — every time you navigate to another
+class or region (if anything changed), and once more when the app is
+closed. This protects against crashes and against closing the app
+without downloading: reload the cruise data, then import
+`<Local Storage Path>/corrections/algaware_corrections_<date>.csv`. The
+first save of a new session sets an autosave left by an earlier session
+aside as `algaware_corrections_<date>_prev.csv`, so restarting after a
+crash never overwrites the file you are about to recover. Auto-save is a
+recovery mechanism, not an archive — still use Download Corrections to
+store the log alongside the report.
 
 ------------------------------------------------------------------------
 
