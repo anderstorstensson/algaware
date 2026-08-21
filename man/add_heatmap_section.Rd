@@ -11,7 +11,8 @@ add_heatmap_section(
   title,
   fig_num,
   cleanup,
-  sample_counts = NULL
+  sample_counts = NULL,
+  phyto_groups = NULL
 )
 }
 \description{
