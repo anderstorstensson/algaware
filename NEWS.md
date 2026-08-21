@@ -22,7 +22,6 @@
   warning lists the affected bins with station names and image counts,
   points to the Samples tab for exclusion, and stays on screen until closed
   so it is not missed while working elsewhere in the app.
-
 - The report heatmaps now show which phytoplankton group each row belongs
   to: rows are split into one panel per group (Diatoms, Dinoflagellates,
   Cyanobacteria, Cryptophytes, Ciliates, Silicoflagellates, Other) with a
