@@ -22,7 +22,8 @@ bloom_alert_note <- function(station_summary, phyto_groups = NULL,
   cruise_month <- as.integer(format(as.Date(station_summary[[date_col]][1]), "%m"))
 
   # Attach group labels (text_group: Diatoms / Dinoflagellates / Cyanobacteria / Other)
-  ss <- attach_text_groups(station_summary, phyto_groups)
+  ss <- attach_text_groups(drop_unclassified_for_text(station_summary),
+                           phyto_groups)
 
   alerts <- character(0)
 
@@ -143,6 +144,8 @@ generate_swedish_summary <- function(station_summary, taxa_lookup = NULL,
     "'v\u00e4xtplankton' (not 'fytoplankton'), ",
     "'expedition' (not 'kryssningen'), ",
     "'kryptomonader' (not 'kryptofyter'). ",
+    "The unclassified classifier category ('oklassificerade') is not a taxon: ",
+    "never mention, list or quantify it in the text. ",
     "Use the provided phytoplankton group assignments in the prompt data. ",
     "Do not infer group membership from scientific names yourself. ",
     "Om ett potentiellt skadligt taxon dominerar biovolymen vid en station, ",
@@ -252,6 +255,8 @@ generate_english_summary <- function(station_summary, taxa_lookup = NULL,
     "When referring to the chlorophyll values, call them '", chl_terms$en,
     "' (this is how the values in the prompt data were measured); ",
     "do not call them by any other chlorophyll term. ",
+    "The unclassified classifier category is not a taxon: never mention, ",
+    "list or quantify it in the text. ",
     "Use the provided phytoplankton group assignments in the prompt data. ",
     "Do not infer group membership from scientific names yourself. ",
     "If a potentially harmful taxon dominates by biovolume at a station, name it as ",
@@ -304,6 +309,7 @@ generate_station_description <- function(station_data, taxa_lookup = NULL,
   # Provide cruise-wide context so the LLM can make relative statements
   context <- ""
   if (!is.null(all_stations_summary)) {
+    all_stations_summary <- drop_unclassified_for_text(all_stations_summary)
     all_visits <- unique(all_stations_summary[, c("visit_id",
                                                    "STATION_NAME_SHORT",
                                                    "COAST")])
@@ -344,6 +350,8 @@ generate_station_description <- function(station_data, taxa_lookup = NULL,
     "If you mention the chlorophyll value, call it '", chl_terms$en,
     "' (this is how the value in the prompt data was measured); ",
     "do not call it by any other chlorophyll term. ",
+    "The unclassified classifier category is not a taxon: never mention, ",
+    "list or quantify it in the text. ",
     "Use the provided phytoplankton group assignments in the prompt data. ",
     "Do not infer group membership from scientific names yourself. ",
     "Use the group names consistently throughout: if a taxon belongs to Silicoflagellates, ",

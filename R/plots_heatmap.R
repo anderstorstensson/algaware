@@ -1,3 +1,41 @@
+#' Order heatmap taxa by phytoplankton group, then alphabetically
+#'
+#' Groups follow the canonical order used elsewhere in AlgAware (Diatoms,
+#' Dinoflagellates, Cyanobacteria, Cryptophytes, \emph{Mesodinium} spp.,
+#' Silicoflagellates), then any additional groups alphabetically, with
+#' "Other" always last.  Taxa are sorted alphabetically within each group;
+#' taxa missing from \code{phyto_groups} fall into "Other".
+#'
+#' @param scientific_names Character vector of taxon names to order.
+#' @param phyto_groups Data frame with columns \code{name} and
+#'   \code{phyto_group}.
+#' @return \code{scientific_names} reordered (top-to-bottom display order).
+#' @keywords internal
+order_taxa_by_group <- function(scientific_names, phyto_groups) {
+  canonical <- c("Diatoms", "Dinoflagellates", "Cyanobacteria",
+                 "Cryptophytes", "Mesodinium spp.", "Silicoflagellates")
+
+  # Heatmap row names carry the sflag suffix ("Actinocyclus spp."), while
+  # phyto_groups$name is the bare WoRMS name ("Actinocyclus"): try the exact
+  # name first, then retry with any trailing sflag stripped.
+  stripped <- sub(" (sp\\.|spp\\.|group)$", "", scientific_names)
+  group <- phyto_groups$phyto_group[
+    match(scientific_names, phyto_groups$name)
+  ]
+  miss <- is.na(group)
+  group[miss] <- phyto_groups$phyto_group[
+    match(stripped[miss], phyto_groups$name)
+  ]
+  group[is.na(group)] <- "Other"
+
+  extra <- sort(setdiff(group, c(canonical, "Other")))
+  group_levels <- c(canonical, extra, "Other")
+
+  scientific_names[
+    order(match(group, group_levels), scientific_names)
+  ]
+}
+
 #' Create a heatmap of biovolume by species and station
 #'
 #' HAB species are marked with a red asterisk (*) on the y-axis labels.
@@ -9,10 +47,14 @@
 #' @param sample_counts Optional named integer vector mapping station_date
 #'   column names to number of samples. If provided, \code{n = X} is appended
 #'   to each x-axis label.
+#' @param phyto_groups Optional data frame with columns \code{name} and
+#'   \code{phyto_group} (as built from \code{assign_phyto_groups()}). If
+#'   provided, taxa are ordered by phytoplankton group and alphabetically
+#'   within each group; otherwise by total biovolume (descending).
 #' @return A ggplot object.
 #' @export
 create_heatmap <- function(wide_summary, taxa_lookup = NULL, title = "",
-                           sample_counts = NULL) {
+                           sample_counts = NULL, phyto_groups = NULL) {
   station_date_order <- names(wide_summary)[-1]
 
   long_data <- tidyr::pivot_longer(
@@ -25,15 +67,23 @@ create_heatmap <- function(wide_summary, taxa_lookup = NULL, title = "",
   long_data$station_date <- factor(long_data$station_date,
                                    levels = station_date_order)
 
-  species_order <- stats::aggregate(
-    biovolume ~ scientific_name,
-    data = long_data,
-    FUN = sum,
-    na.rm = TRUE
-  )
-  species_order <- species_order$scientific_name[
-    order(species_order$biovolume, decreasing = TRUE)
-  ]
+  if (!is.null(phyto_groups) && nrow(phyto_groups) > 0) {
+    # rev(): factor levels run bottom-to-top on a discrete y-axis, so the
+    # first group (Diatoms) and A->Z order read top-to-bottom in the plot.
+    species_order <- rev(order_taxa_by_group(
+      unique(long_data$scientific_name), phyto_groups
+    ))
+  } else {
+    species_order <- stats::aggregate(
+      biovolume ~ scientific_name,
+      data = long_data,
+      FUN = sum,
+      na.rm = TRUE
+    )
+    species_order <- species_order$scientific_name[
+      order(species_order$biovolume, decreasing = TRUE)
+    ]
+  }
 
   # Identify HAB species
   hab_species <- get_hab_species(taxa_lookup)
@@ -49,9 +99,12 @@ create_heatmap <- function(wide_summary, taxa_lookup = NULL, title = "",
   names(display_labels) <- species_order
   label_colors <- ifelse(species_order %in% hab_species, "red", "black")
 
+  long_data$scientific_name <- factor(long_data$scientific_name,
+                                      levels = species_order)
+
   p <- ggplot2::ggplot(long_data, ggplot2::aes(
     x = .data$station_date,
-    y = factor(.data$scientific_name, levels = species_order),
+    y = .data$scientific_name,
     fill = .data$biovolume
   )) +
     ggplot2::geom_tile(color = "white") +
