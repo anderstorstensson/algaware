@@ -1,5 +1,14 @@
 # algaware (development version)
 
+## New features
+
+- After loading data, the app now warns about near-empty bins (fewer than
+  20 images), which are typically end-of-cruise IFCB cleaning-cycle samples
+  of distilled water that happen to coincide with an AlgAware station. The
+  warning lists the affected bins with station names and image counts,
+  points to the Samples tab for exclusion, and stays on screen until closed
+  so it is not missed while working elsewhere in the app.
+
 ## Minor improvements and fixes
 
 
