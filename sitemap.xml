@@ -32,6 +32,7 @@
 <url><loc>https://nodc-sweden.github.io/ifcb-algaware/reference/base_sweden_map.html</loc></url>
 <url><loc>https://nodc-sweden.github.io/ifcb-algaware/reference/bloom_alert_note.html</loc></url>
 <url><loc>https://nodc-sweden.github.io/ifcb-algaware/reference/build_cruise_info.html</loc></url>
+<url><loc>https://nodc-sweden.github.io/ifcb-algaware/reference/build_near_empty_warning.html</loc></url>
 <url><loc>https://nodc-sweden.github.io/ifcb-algaware/reference/build_readiness_items.html</loc></url>
 <url><loc>https://nodc-sweden.github.io/ifcb-algaware/reference/build_relabel_choices.html</loc></url>
 <url><loc>https://nodc-sweden.github.io/ifcb-algaware/reference/build_sample_counts.html</loc></url>
@@ -70,6 +71,7 @@
 <url><loc>https://nodc-sweden.github.io/ifcb-algaware/reference/create_wide_summary.html</loc></url>
 <url><loc>https://nodc-sweden.github.io/ifcb-algaware/reference/deduplicate_casts.html</loc></url>
 <url><loc>https://nodc-sweden.github.io/ifcb-algaware/reference/default_settings.html</loc></url>
+<url><loc>https://nodc-sweden.github.io/ifcb-algaware/reference/detect_near_empty_bins.html</loc></url>
 <url><loc>https://nodc-sweden.github.io/ifcb-algaware/reference/download_all_data.html</loc></url>
 <url><loc>https://nodc-sweden.github.io/ifcb-algaware/reference/download_features.html</loc></url>
 <url><loc>https://nodc-sweden.github.io/ifcb-algaware/reference/download_raw_data.html</loc></url>
