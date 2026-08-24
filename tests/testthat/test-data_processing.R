@@ -342,3 +342,195 @@ test_that("compute_unclassified_fractions returns empty list for no data", {
   result <- compute_unclassified_fractions(classifications, metadata)
   expect_length(result, 0)
 })
+
+test_that("compute_per_liter adds cell_counts_per_liter when totals are present", {
+  agg <- data.frame(
+    total_counts = c(100, 200),
+    total_biovolume_mm3 = c(0.5, 1.0),
+    total_carbon_ug = c(10, 20),
+    total_ml_analyzed = c(5000, 5000),
+    total_cell_counts = c(500, NA_real_),
+    stringsAsFactors = FALSE
+  )
+
+  result <- algaware:::compute_per_liter(agg)
+  expect_equal(result$cell_counts_per_liter[1], 500 / 5)
+  expect_true(is.na(result$cell_counts_per_liter[2]))
+
+  # Without the totals column the per-liter column is not invented.
+  agg$total_cell_counts <- NULL
+  result <- algaware:::compute_per_liter(agg)
+  expect_false("cell_counts_per_liter" %in% names(result))
+})
+
+test_that("summarize_biovolumes passes chain counts to iRfcb when present", {
+  skip_if_not_installed("mockery")
+
+  classifications <- data.frame(
+    sample_name = c("D20250101T000000_IFCB134", "D20250101T000000_IFCB134"),
+    roi_number = c(1L, 2L),
+    class_name = c("Pseudo-nitzschia_spp", "Dinophysis_acuta"),
+    score = c(0.9, 0.9),
+    cell_count = c(6L, NA_integer_),
+    stringsAsFactors = FALSE
+  )
+  taxa_lookup <- data.frame(
+    clean_names = c("Pseudo-nitzschia_spp", "Dinophysis_acuta"),
+    name = c("Pseudo-nitzschia", "Dinophysis acuta"),
+    AphiaID = c(149151L, 109604L),
+    stringsAsFactors = FALSE
+  )
+
+  captured <- NULL
+  fake_summarize <- function(...) {
+    captured <<- list(...)
+    data.frame(
+      sample = "D20250101T000000_IFCB134",
+      class = c("Pseudo-nitzschia_spp", "Dinophysis_acuta"),
+      counts = c(1, 1),
+      biovolume_mm3 = c(0.1, 0.1),
+      carbon_ug = c(1, 1),
+      ml_analyzed = c(3, 3),
+      cell_counts = c(6, NA_real_),
+      stringsAsFactors = FALSE
+    )
+  }
+  mockery::stub(summarize_biovolumes, "iRfcb::ifcb_summarize_biovolumes",
+                fake_summarize)
+
+  result <- summarize_biovolumes("feat", "raw", classifications, taxa_lookup)
+
+  expect_true(captured$use_cell_counts)
+  expect_equal(captured$carbon_conversion, "cell")
+  expect_equal(captured$custom_cell_counts, c(6L, NA_integer_))
+  expect_equal(result$cell_counts[result$class == "Pseudo-nitzschia_spp"], 6)
+})
+
+test_that("summarize_biovolumes keeps the image-based call without chain counts", {
+  skip_if_not_installed("mockery")
+
+  classifications <- data.frame(
+    sample_name = "D20240101T000000_IFCB134",
+    roi_number = 1L,
+    class_name = "Dinophysis_acuta",
+    score = 0.9,
+    cell_count = NA_integer_,
+    stringsAsFactors = FALSE
+  )
+  taxa_lookup <- data.frame(
+    clean_names = "Dinophysis_acuta",
+    name = "Dinophysis acuta",
+    AphiaID = 109604L,
+    stringsAsFactors = FALSE
+  )
+
+  captured <- NULL
+  fake_summarize <- function(...) {
+    captured <<- list(...)
+    # iRfcb omits cell_counts entirely when use_cell_counts = FALSE
+    data.frame(
+      sample = "D20240101T000000_IFCB134",
+      class = "Dinophysis_acuta",
+      counts = 1,
+      biovolume_mm3 = 0.1,
+      carbon_ug = 1,
+      ml_analyzed = 3,
+      stringsAsFactors = FALSE
+    )
+  }
+  mockery::stub(summarize_biovolumes, "iRfcb::ifcb_summarize_biovolumes",
+                fake_summarize)
+
+  result <- summarize_biovolumes("feat", "raw", classifications, taxa_lookup)
+
+  expect_false(captured$use_cell_counts)
+  expect_equal(captured$carbon_conversion, "roi")
+  expect_null(captured$custom_cell_counts)
+  # The column is ensured downstream with NA (not 0, which would read as
+  # genuine absence).
+  expect_true(all(is.na(result$cell_counts)))
+})
+
+test_that("aggregate_station_data propagates NA cell counts within a visit", {
+  skip_if_not_installed("mockery")
+
+  # Two samples in the same visit: S1 has chain-counter data, S2 does not.
+  # The Pseudo-nitzschia visit total must be NA (never a partial sum), while
+  # the Dinophysis total (present only in the chain-counted sample) sums.
+  biovolume_data <- data.frame(
+    sample = c("S1", "S1", "S2"),
+    counts = c(10, 5, 20),
+    biovolume_mm3 = c(0.1, 0.05, 0.2),
+    carbon_ug = c(1, 0.5, 2),
+    ml_analyzed = c(3, 3, 5),
+    cell_counts = c(40, 5, NA_real_),
+    name = c("Pseudo-nitzschia", "Dinophysis acuta", "Pseudo-nitzschia"),
+    sflag = c("spp.", "", "spp."),
+    AphiaID = c(149151L, 109604L, 149151L),
+    stringsAsFactors = FALSE
+  )
+  metadata <- data.frame(
+    pid = c("S1", "S2"),
+    STATION_NAME = c("STN_A", "STN_A"),
+    STATION_NAME_SHORT = c("A", "A"),
+    COAST = c("EAST", "EAST"),
+    sample_time = as.POSIXct(c("2026-08-01 10:00:00", "2026-08-01 10:30:00"),
+                             tz = "UTC"),
+    stringsAsFactors = FALSE
+  )
+  stations <- data.frame(
+    STATION_NAME = "STN_A",
+    LATITUDE_WGS84_SWEREF99_DD = 58,
+    LONGITUDE_WGS84_SWEREF99_DD = 11,
+    stringsAsFactors = FALSE
+  )
+  mockery::stub(aggregate_station_data, "load_shark_stations", stations)
+
+  result <- aggregate_station_data(biovolume_data, metadata)
+
+  pn <- result[result$name == "Pseudo-nitzschia", ]
+  expect_true(is.na(pn$total_cell_counts))
+  expect_true(is.na(pn$cell_counts_per_liter))
+  # Image-based abundance is unaffected by the missing chain counts.
+  expect_equal(pn$total_counts, 30)
+  expect_equal(pn$counts_per_liter, 30 / (8 / 1000))
+
+  dino <- result[result$name == "Dinophysis acuta", ]
+  expect_equal(dino$total_cell_counts, 5)
+  expect_equal(dino$cell_counts_per_liter, 5 / (8 / 1000))
+})
+
+test_that("aggregate_station_data handles input without a cell_counts column", {
+  skip_if_not_installed("mockery")
+
+  biovolume_data <- data.frame(
+    sample = "S1",
+    counts = 10,
+    biovolume_mm3 = 0.1,
+    carbon_ug = 1,
+    ml_analyzed = 3,
+    name = "Dinophysis acuta",
+    sflag = "",
+    AphiaID = 109604L,
+    stringsAsFactors = FALSE
+  )
+  metadata <- data.frame(
+    pid = "S1",
+    STATION_NAME = "STN_A",
+    STATION_NAME_SHORT = "A",
+    COAST = "EAST",
+    sample_time = as.POSIXct("2026-08-01 10:00:00", tz = "UTC"),
+    stringsAsFactors = FALSE
+  )
+  stations <- data.frame(
+    STATION_NAME = "STN_A",
+    LATITUDE_WGS84_SWEREF99_DD = 58,
+    LONGITUDE_WGS84_SWEREF99_DD = 11,
+    stringsAsFactors = FALSE
+  )
+  mockery::stub(aggregate_station_data, "load_shark_stations", stations)
+
+  result <- aggregate_station_data(biovolume_data, metadata)
+  expect_true(all(is.na(result$total_cell_counts)))
+  expect_true(all(is.na(result$cell_counts_per_liter)))
+})

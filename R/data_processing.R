@@ -15,7 +15,10 @@
 #' @param custom_classes Optional data frame of custom classes with an
 #'   \code{is_diatom} column. Used to extend diatom identification.
 #' @return A data.frame with per-sample, per-class biovolume data joined with
-#'   taxonomy.
+#'   taxonomy. Includes a \code{cell_counts} column with chain-counter cell
+#'   abundance, which is \code{NA} for samples without \code{cell_count} data
+#'   (never 0, which would look like genuine absence). When cell counts are
+#'   available, carbon is converted per cell rather than per whole-chain ROI.
 #' @export
 summarize_biovolumes <- function(feature_folder, hdr_folder, classifications,
                                  taxa_lookup, non_bio_classes = character(0),
@@ -28,15 +31,31 @@ summarize_biovolumes <- function(feature_folder, hdr_folder, classifications,
   # Identify diatom classes from taxa lookup and custom classes
   diatom_classes <- identify_diatom_classes(taxa_lookup, custom_classes)
 
+  # Chain-counter data (ifcb-classify >= 0.3.0) enables cell-based abundance
+  # and per-cell carbon. Pre-YOLO cruises carry only NA cell counts and keep
+  # the image-based call, since iRfcb refuses all-NA chain data.
+  has_cell_counts <- "cell_count" %in% names(classifications) &&
+    any(!is.na(classifications$cell_count))
+
   biovolume_data <- iRfcb::ifcb_summarize_biovolumes(
     feature_folder = feature_folder,
     hdr_folder = hdr_folder,
     custom_images = image_names,
     custom_classes = classifications$class_name,
+    custom_cell_counts = if (has_cell_counts) classifications$cell_count,
+    use_cell_counts = has_cell_counts,
+    carbon_conversion = if (has_cell_counts) "cell" else "roi",
     diatom_include = diatom_classes,
     micron_factor = 1 / pixels_per_micron,
     verbose = FALSE
   )
+
+  # iRfcb omits the column entirely without chain data; downstream aggregation
+  # expects it, with NA meaning "not measured" (never 0, which would look like
+  # genuine absence).
+  if (!"cell_counts" %in% names(biovolume_data)) {
+    biovolume_data$cell_counts <- NA_real_
+  }
 
   # Join with taxonomy (include sflag if present)
   lookup_cols <- intersect(c("clean_names", "name", "sflag", "AphiaID"),
@@ -168,9 +187,11 @@ compute_sample_volumes <- function(all_data) {
 #' Compute per-liter concentrations from aggregated data
 #'
 #' @param agg Data.frame with total_counts, total_biovolume_mm3,
-#'   total_carbon_ug, total_ml_analyzed columns.
+#'   total_carbon_ug, total_ml_analyzed and optionally total_cell_counts
+#'   columns.
 #' @return The input data.frame with added counts_per_liter,
-#'   biovolume_mm3_per_liter, carbon_ug_per_liter columns.
+#'   biovolume_mm3_per_liter, carbon_ug_per_liter columns, plus
+#'   cell_counts_per_liter when total_cell_counts is present.
 #' @keywords internal
 compute_per_liter <- function(agg) {
   ml_liters <- agg$total_ml_analyzed / 1000
@@ -178,6 +199,9 @@ compute_per_liter <- function(agg) {
   agg$counts_per_liter <- agg$total_counts / ml_liters
   agg$biovolume_mm3_per_liter <- agg$total_biovolume_mm3 / ml_liters
   agg$carbon_ug_per_liter <- agg$total_carbon_ug / ml_liters
+  if ("total_cell_counts" %in% names(agg)) {
+    agg$cell_counts_per_liter <- agg$total_cell_counts / ml_liters
+  }
   agg
 }
 
@@ -224,8 +248,10 @@ compute_presence_categories <- function(agg) {
 #'   \code{COAST}, \code{STATION_NAME_SHORT}, \code{sample_time}, and
 #'   \code{ml_analyzed} columns.
 #' @return A data.frame with per-station, per-taxon summary including
-#'   \code{counts_per_liter}, \code{biovolume_mm3_per_liter},
-#'   \code{carbon_ug_per_liter}, and \code{Presence_cat}.
+#'   \code{counts_per_liter} (images/L), \code{cell_counts_per_liter}
+#'   (cells/L; \code{NA} when any sample in the visit lacks chain-counter
+#'   data), \code{biovolume_mm3_per_liter}, \code{carbon_ug_per_liter}, and
+#'   \code{Presence_cat}.
 #' @export
 aggregate_station_data <- function(biovolume_data, metadata) {
   all_data <- merge(
@@ -277,6 +303,28 @@ aggregate_station_data <- function(biovolume_data, metadata) {
     na.rm = TRUE,
     na.action = stats::na.pass
   )
+
+  # Cell counts deliberately do NOT use na.rm = TRUE like the block above: an
+  # NA here means a sample without chain-counter data, and summing around it
+  # would silently understate the visit total. Plain sum() propagates the NA,
+  # so a visit mixing chain-counted and pre-YOLO samples reports NA and the
+  # consumers fall back to image counts.
+  if ("cell_counts" %in% names(all_data)) {
+    cell_agg <- stats::aggregate(
+      cbind(total_cell_counts = cell_counts) ~
+        visit_id + STATION_NAME + STATION_NAME_SHORT + COAST + visit_date +
+        name + sflag,
+      data = all_data,
+      FUN = sum,
+      na.action = stats::na.pass
+    )
+    agg <- merge(agg, cell_agg,
+                 by = c("visit_id", "STATION_NAME", "STATION_NAME_SHORT",
+                        "COAST", "visit_date", "name", "sflag"),
+                 all.x = TRUE)
+  } else {
+    agg$total_cell_counts <- NA_real_
+  }
 
   # Collapse to a single AphiaID per (name, sflag) before joining. If a key
   # mapped to more than one distinct AphiaID, the merge would multiply the

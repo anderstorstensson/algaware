@@ -8,11 +8,13 @@ compute_per_liter(agg)
 }
 \arguments{
 \item{agg}{Data.frame with total_counts, total_biovolume_mm3,
-total_carbon_ug, total_ml_analyzed columns.}
+total_carbon_ug, total_ml_analyzed and optionally total_cell_counts
+columns.}
 }
 \value{
 The input data.frame with added counts_per_liter,
-biovolume_mm3_per_liter, carbon_ug_per_liter columns.
+biovolume_mm3_per_liter, carbon_ug_per_liter columns, plus
+cell_counts_per_liter when total_cell_counts is present.
 }
 \description{
 Compute per-liter concentrations from aggregated data

@@ -14,7 +14,7 @@ If NULL, reads all .h5 files in the directory.}
 }
 \value{
 A data.frame with columns: sample_name, roi_number, class_name,
-score.
+score, cell_count.
 }
 \description{
 Reads thresholded class assignments from H5 classification files produced
@@ -24,5 +24,9 @@ by the IFCB neural network classifier. Each H5 file contains:
 \item \code{class_name}: character vector of predicted class per ROI
 \item \code{output_scores}: matrix of class probabilities (classes x ROIs);
 the maximum score per ROI is used as the confidence value
+\item \code{cell_count} (optional): integer vector of raw per-ROI chain
+counts from the YOLO diatom chain counter (ifcb-classify >= 0.3.0).
+Files without this dataset (pre-YOLO classifications) yield
+\code{NA_integer_} for every ROI.
 }
 }

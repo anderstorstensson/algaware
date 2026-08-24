@@ -36,7 +36,10 @@ IFCB instrument. Different IFCB units may use slightly different values.}
 }
 \value{
 A data.frame with per-sample, per-class biovolume data joined with
-taxonomy.
+taxonomy. Includes a \code{cell_counts} column with chain-counter cell
+abundance, which is \code{NA} for samples without \code{cell_count} data
+(never 0, which would look like genuine absence). When cell counts are
+available, carbon is converted per cell rather than per whole-chain ROI.
 }
 \description{
 Wraps \code{iRfcb::ifcb_summarize_biovolumes()} and joins with taxonomy.

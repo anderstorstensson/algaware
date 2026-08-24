@@ -1,3 +1,32 @@
+# algaware (development version)
+
+## New features
+
+- Absolute cell concentrations are now computed from the YOLO diatom chain
+  counter (ifcb-classify >= 0.3.0), which stores a per-ROI `cell_count` in
+  the H5 classification files. Until now every abundance was images per
+  liter -- a chain of eight cells counted as one -- yet the warning levels
+  in the taxa lookup are defined in cells per liter, so the comparison
+  understated chain formers by roughly their mean chain length. This
+  mattered for exactly one taxon: *Pseudo-nitzschia*, the only chain former
+  with a warning level (100 000 cells/L), whose real exceedances could be
+  missed severalfold. Station summaries gain `cell_counts_per_liter`
+  alongside the unchanged image-based `counts_per_liter`, the LLM prompts
+  compare warning levels against the cell concentration and label it
+  cells/L (falling back to the image count labelled `counts/L
+  (image-based)` when chain data is absent, since relabelling image counts
+  as cells invited the LLM to report wrong units), and carbon is converted
+  per cell rather than per whole-chain ROI, which raises
+  `carbon_ug_per_liter` for chain-forming diatoms (the Menden-Deuer and
+  Lessard equations are fitted per cell; biovolume is unchanged). A sample
+  whose classification file carries no `cell_count` data reports `NA`
+  cells -- never 0, which would look like genuine absence -- and a visit
+  mixing chain-counted and older samples reports `NA` rather than a silent
+  partial sum. Pre-YOLO cruises are read and summarized exactly as before.
+  Requires the development version of `iRfcb` (>= 0.10.0.9000), whose new
+  `custom_cell_counts` argument lets the chain counts accompany the
+  corrected classifications that algaware passes as custom classes.
+
 # algaware 0.3.0
 
 ## New features
@@ -48,7 +77,6 @@
   recorded.
 - Heatmap row labels are HTML-escaped, so a custom class name containing
   `<`, `>` or `&` no longer aborts report generation.
-
 - The "unclassified" classifier category is no longer passed to the LLM
   prompts, so generated station descriptions and cruise summaries no longer
   describe it as a dominant taxon. Totals, percentages and group breakdowns

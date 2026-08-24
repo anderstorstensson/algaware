@@ -43,6 +43,43 @@ chl_measure_terms <- function(chl_measure = "fluorescence") {
   }
 }
 
+#' Cell concentration for one station-summary row
+#'
+#' @param row One row of station summary data.
+#' @return The chain-counter cell concentration (cells/L), or \code{NA} when
+#'   the column is absent or the visit lacks chain-counter data.
+#' @keywords internal
+cell_concentration <- function(row) {
+  if ("cell_counts_per_liter" %in% names(row)) {
+    row$cell_counts_per_liter
+  } else {
+    NA_real_
+  }
+}
+
+#' Abundance value and unit for warning-level comparisons
+#'
+#' Warning levels are defined in cells per liter. The chain-counter cell
+#' concentration is used when available; otherwise the image-based count is
+#' the best (conservative) proxy, labelled honestly so the LLM does not
+#' present image counts as cells. For chain formers such as
+#' \emph{Pseudo-nitzschia} the image count understates the cell concentration
+#' by roughly the mean chain length.
+#'
+#' @param row One row of station summary data with \code{counts_per_liter}
+#'   and optionally \code{cell_counts_per_liter}.
+#' @return A list with \code{value} (numeric, may be \code{NA}) and
+#'   \code{unit} (a label for the value).
+#' @keywords internal
+threshold_abundance <- function(row) {
+  cells <- cell_concentration(row)
+  if (!is.na(cells)) {
+    list(value = cells, unit = "cells/L")
+  } else {
+    list(value = row$counts_per_liter, unit = "counts/L (image-based)")
+  }
+}
+
 #' Attach collapsed text groups to station summary data
 #'
 #' @param x Station-level data frame with \code{name} and optionally
@@ -290,12 +327,12 @@ format_station_data_for_prompt <- function(station_data, taxa_lookup = NULL,
     warn_flag <- ""
     if (row$display_name %in% names(warning_thresholds)) {
       thresh <- warning_thresholds[[row$display_name]]
-      # counts_per_liter is NA when the sample volume is missing; without the
+      ab <- threshold_abundance(row)
+      # The abundance is NA when the sample volume is missing; without the
       # guard the comparison errored and the station description was lost.
-      if (!is.na(thresh) && !is.na(row$counts_per_liter) &&
-          row$counts_per_liter >= thresh) {
-        warn_flag <- sprintf(" [WARNING: %.0f cells/L, threshold %.0f cells/L]",
-                             row$counts_per_liter, thresh)
+      if (!is.na(thresh) && !is.na(ab$value) && ab$value >= thresh) {
+        warn_flag <- sprintf(" [WARNING: %.0f %s, threshold %.0f cells/L]",
+                             ab$value, ab$unit, thresh)
       }
     }
     pct <- if (total_biovolume > 0) {
@@ -313,6 +350,9 @@ format_station_data_for_prompt <- function(station_data, taxa_lookup = NULL,
     }
     counts_txt <- if (is.na(row$counts_per_liter)) {
       "counts/L not available (sample volume missing) - do not report abundance"
+    } else if (!is.na(cell_concentration(row))) {
+      sprintf("%.0f cells/L (%.0f images/L)",
+              cell_concentration(row), row$counts_per_liter)
     } else {
       sprintf("%.0f counts/L", row$counts_per_liter)
     }
@@ -337,11 +377,12 @@ format_station_data_for_prompt <- function(station_data, taxa_lookup = NULL,
     for (dn in names(warning_thresholds)) {
       idx <- which(station_data$display_name == dn)
       if (length(idx) > 0) {
-        counts <- station_data$counts_per_liter[idx[1]]
+        ab <- threshold_abundance(station_data[idx[1], ])
         thresh <- warning_thresholds[[dn]]
-        if (!is.na(counts) && !is.na(thresh) && counts >= thresh) {
+        if (!is.na(ab$value) && !is.na(thresh) && ab$value >= thresh) {
           warning_exceeded <- c(warning_exceeded,
-            sprintf("%s (%.0f cells/L, threshold %.0f cells/L)", dn, counts, thresh))
+            sprintf("%s (%.0f %s, threshold %.0f cells/L)",
+                    dn, ab$value, ab$unit, thresh))
         }
       }
     }
@@ -473,11 +514,12 @@ format_cruise_summary_for_prompt <- function(station_summary, taxa_lookup = NULL
       for (dn in names(warning_thresholds)) {
         idx <- which(sdata$display_name == dn)
         if (length(idx) > 0) {
-          counts <- sdata$counts_per_liter[idx[1]]
+          ab <- threshold_abundance(sdata[idx[1], ])
           thresh <- warning_thresholds[[dn]]
-          if (!is.na(counts) && !is.na(thresh) && counts >= thresh) {
+          if (!is.na(ab$value) && !is.na(thresh) && ab$value >= thresh) {
             warn_exceeded <- c(warn_exceeded,
-              sprintf("%s (%.0f>=%.0f cells/L)", dn, counts, thresh))
+              sprintf("%s (%.0f %s >= %.0f cells/L)",
+                      dn, ab$value, ab$unit, thresh))
           }
         }
       }
@@ -560,12 +602,12 @@ format_cruise_summary_for_prompt <- function(station_summary, taxa_lookup = NULL
       idx <- which(station_summary$display_name_tmp == dn)
       if (length(idx) == 0) next
       for (ii in idx) {
-        counts <- station_summary$counts_per_liter[ii]
-        if (!is.na(counts) && !is.na(thresh) && counts >= thresh) {
+        ab <- threshold_abundance(station_summary[ii, ])
+        if (!is.na(ab$value) && !is.na(thresh) && ab$value >= thresh) {
           stn <- station_summary$STATION_NAME_SHORT[ii]
           all_warnings <- c(all_warnings,
-            sprintf("%s at %s (%.0f cells/L, threshold %.0f cells/L)",
-                    dn, stn, counts, thresh))
+            sprintf("%s at %s (%.0f %s, threshold %.0f cells/L)",
+                    dn, stn, ab$value, ab$unit, thresh))
         }
       }
     }

@@ -15,8 +15,10 @@ aggregate_station_data(biovolume_data, metadata)
 }
 \value{
 A data.frame with per-station, per-taxon summary including
-\code{counts_per_liter}, \code{biovolume_mm3_per_liter},
-\code{carbon_ug_per_liter}, and \code{Presence_cat}.
+\code{counts_per_liter} (images/L), \code{cell_counts_per_liter}
+(cells/L; \code{NA} when any sample in the visit lacks chain-counter
+data), \code{biovolume_mm3_per_liter}, \code{carbon_ug_per_liter}, and
+\code{Presence_cat}.
 }
 \description{
 Aggregates sample volumes, computes per-liter concentrations, and assigns

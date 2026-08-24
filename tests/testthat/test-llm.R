@@ -717,6 +717,98 @@ test_that("format_cruise_summary_for_prompt flags warning exceedances", {
   expect_true(grepl("1500", result))
 })
 
+test_that("format_station_data_for_prompt uses cell concentrations for warnings", {
+  # Pseudo-nitzschia forms chains, so image counts understate cells: 60 000
+  # images/L but 150 000 cells/L against the 100 000 cells/L warning level.
+  # Only the cell-based comparison catches the exceedance.
+  station_data <- data.frame(
+    STATION_NAME_SHORT = "SLAGGO",
+    STATION_NAME = "Slaggo",
+    COAST = "WEST",
+    visit_date = as.Date("2026-04-15"),
+    name = "Pseudo-nitzschia",
+    sflag = "spp.",
+    biovolume_mm3_per_liter = 0.3,
+    carbon_ug_per_liter = 5.0,
+    counts_per_liter = 60000,
+    cell_counts_per_liter = 150000,
+    stringsAsFactors = FALSE
+  )
+  taxa <- data.frame(
+    name = "Pseudo-nitzschia",
+    sflag = "spp.",
+    HAB = TRUE,
+    warning_level = 100000,
+    italic = TRUE,
+    stringsAsFactors = FALSE
+  )
+  result <- algaware:::format_station_data_for_prompt(station_data, taxa)
+  expect_true(grepl("WARNING", result))
+  expect_true(grepl("150000 cells/L", result))
+  expect_true(grepl("threshold 100000 cells/L", result))
+  expect_true(grepl("IMPORTANT", result))
+  # The taxa line reports both units so the LLM sees the distinction.
+  expect_true(grepl("150000 cells/L \\(60000 images/L\\)", result))
+})
+
+test_that("warning comparisons fall back to image counts labelled honestly", {
+  # No chain-counter data: the image count is still compared (conservative,
+  # it can only understate), but must not be relabelled as cells/L.
+  station_data <- data.frame(
+    STATION_NAME_SHORT = "BY5",
+    STATION_NAME = "BY5 Bornholm Deep",
+    COAST = "EAST",
+    visit_date = as.Date("2024-03-15"),
+    name = "Dinophysis acuminata",
+    sflag = "",
+    biovolume_mm3_per_liter = 0.3,
+    carbon_ug_per_liter = 5.0,
+    counts_per_liter = 2000,
+    cell_counts_per_liter = NA_real_,
+    stringsAsFactors = FALSE
+  )
+  taxa <- data.frame(
+    name = "Dinophysis acuminata",
+    sflag = "",
+    HAB = TRUE,
+    warning_level = 1500,
+    italic = TRUE,
+    stringsAsFactors = FALSE
+  )
+  result <- algaware:::format_station_data_for_prompt(station_data, taxa)
+  expect_true(grepl("WARNING", result))
+  expect_true(grepl("2000 counts/L \\(image-based\\)", result))
+  expect_false(grepl("2000 cells/L", result))
+})
+
+test_that("format_cruise_summary_for_prompt uses cell concentrations for warnings", {
+  station_summary <- data.frame(
+    STATION_NAME_SHORT = "SLAGGO",
+    COAST = "WEST",
+    visit_date = as.Date("2026-04-15"),
+    visit_id = "SLAGGO_v1",
+    name = "Pseudo-nitzschia",
+    sflag = "spp.",
+    biovolume_mm3_per_liter = 0.3,
+    carbon_ug_per_liter = 5.0,
+    counts_per_liter = 60000,
+    cell_counts_per_liter = 150000,
+    stringsAsFactors = FALSE
+  )
+  taxa <- data.frame(
+    name = "Pseudo-nitzschia",
+    sflag = "spp.",
+    HAB = TRUE,
+    warning_level = 100000,
+    italic = TRUE,
+    stringsAsFactors = FALSE
+  )
+  result <- algaware:::format_cruise_summary_for_prompt(station_summary, taxa)
+  expect_true(grepl("WARNING EXCEEDED", result))
+  expect_true(grepl("150000 cells/L", result))
+  expect_true(grepl("threshold 100000 cells/L", result))
+})
+
 # ── bloom_alert_note ────────────────────────────────────────────────────────
 
 # bloom_call() builds a minimal station_summary + matching phyto_groups and

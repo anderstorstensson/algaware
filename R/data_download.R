@@ -398,13 +398,17 @@ copy_classification_files <- function(classification_path, sample_ids,
 #'   \item \code{class_name}: character vector of predicted class per ROI
 #'   \item \code{output_scores}: matrix of class probabilities (classes x ROIs);
 #'     the maximum score per ROI is used as the confidence value
+#'   \item \code{cell_count} (optional): integer vector of raw per-ROI chain
+#'     counts from the YOLO diatom chain counter (ifcb-classify >= 0.3.0).
+#'     Files without this dataset (pre-YOLO classifications) yield
+#'     \code{NA_integer_} for every ROI.
 #' }
 #'
 #' @param h5_dir Directory containing .h5 files.
 #' @param sample_ids Optional character vector of sample PIDs to read.
 #'   If NULL, reads all .h5 files in the directory.
 #' @return A data.frame with columns: sample_name, roi_number, class_name,
-#'   score.
+#'   score, cell_count.
 #' @export
 read_h5_classifications <- function(h5_dir, sample_ids = NULL) {
   h5_files <- list.files(h5_dir, pattern = "_class.*\\.h5$",
@@ -421,6 +425,7 @@ read_h5_classifications <- function(h5_dir, sample_ids = NULL) {
       roi_number = integer(0),
       class_name = character(0),
       score = numeric(0),
+      cell_count = integer(0),
       stringsAsFactors = FALSE
     ))
   }
@@ -435,6 +440,15 @@ read_h5_classifications <- function(h5_dir, sample_ids = NULL) {
       output_scores <- h5[["output_scores"]]$read()
       scores <- apply(output_scores, 2, max)
 
+      # The chain-counter dataset only exists in files written by
+      # ifcb-classify >= 0.3.0; an unguarded read would throw here and drop
+      # the whole file from the dataset via the tryCatch below.
+      cell_counts <- if (h5$exists("cell_count")) {
+        as.integer(h5[["cell_count"]]$read())
+      } else {
+        NA_integer_
+      }
+
       sample_name <- sub("_class.*\\.h5$", "", basename(h5_path))
 
       data.frame(
@@ -442,6 +456,7 @@ read_h5_classifications <- function(h5_dir, sample_ids = NULL) {
         roi_number = as.integer(roi_numbers),
         class_name = class_names,
         score = scores,
+        cell_count = cell_counts,
         stringsAsFactors = FALSE
       )
     }, error = function(e) {
@@ -455,6 +470,7 @@ read_h5_classifications <- function(h5_dir, sample_ids = NULL) {
   if (length(valid_results) == 0) {
     return(data.frame(sample_name = character(0), roi_number = integer(0),
                       class_name = character(0), score = numeric(0),
+                      cell_count = integer(0),
                       stringsAsFactors = FALSE))
   }
   do.call(rbind, valid_results)

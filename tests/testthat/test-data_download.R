@@ -55,7 +55,9 @@ test_that("read_h5_classifications returns empty df for empty dir", {
   result <- read_h5_classifications(tmp_dir)
   expect_s3_class(result, "data.frame")
   expect_equal(nrow(result), 0)
-  expect_equal(names(result), c("sample_name", "roi_number", "class_name", "score"))
+  expect_equal(names(result),
+               c("sample_name", "roi_number", "class_name", "score",
+                 "cell_count"))
 })
 
 test_that("download_raw_data creates dest_dir", {
@@ -409,10 +411,15 @@ test_that("read_h5_classifications reads real H5 file correctly", {
   result <- read_h5_classifications(tmp_dir)
   expect_s3_class(result, "data.frame")
   expect_true(nrow(result) > 0)
-  expect_equal(names(result), c("sample_name", "roi_number", "class_name", "score"))
+  expect_equal(names(result),
+               c("sample_name", "roi_number", "class_name", "score",
+                 "cell_count"))
   expect_equal(unique(result$sample_name), "D20250714T110535_IFCB134")
   expect_type(result$roi_number, "integer")
   expect_type(result$score, "double")
+  # The real fixture predates the chain counter: the column must exist and be
+  # all NA, never dropped or zero-filled.
+  expect_true(all(is.na(result$cell_count)))
 })
 
 test_that("read_h5_classifications filters by sample_ids", {
@@ -467,6 +474,65 @@ test_that("read_h5_classifications warns and skips invalid h5 files", {
   )
   expect_s3_class(result, "data.frame")
   expect_equal(nrow(result), 0)
+})
+
+test_that("read_h5_classifications reads the optional cell_count dataset", {
+  skip_if_not_installed("hdf5r")
+
+  tmp_dir <- file.path(tempdir(), paste0("h5_cells_", Sys.getpid()))
+  dir.create(tmp_dir, recursive = TRUE, showWarnings = FALSE)
+  on.exit(unlink(tmp_dir, recursive = TRUE), add = TRUE)
+
+  write_test_class_h5(tmp_dir, "D20250101T000000_IFCB134",
+                      class_names = c("Pseudo-nitzschia_spp",
+                                      "Skeletonema_marinoi"),
+                      cell_count = c(6L, -1L))
+
+  result <- read_h5_classifications(tmp_dir)
+  expect_equal(nrow(result), 2)
+  expect_equal(result$cell_count, c(6L, -1L))
+  expect_equal(result$class_name,
+               c("Pseudo-nitzschia_spp", "Skeletonema_marinoi"))
+})
+
+test_that("read_h5_classifications keeps pre-YOLO files with NA cell_count", {
+  skip_if_not_installed("hdf5r")
+
+  tmp_dir <- file.path(tempdir(), paste0("h5_noyolo_", Sys.getpid()))
+  dir.create(tmp_dir, recursive = TRUE, showWarnings = FALSE)
+  on.exit(unlink(tmp_dir, recursive = TRUE), add = TRUE)
+
+  write_test_class_h5(tmp_dir, "D20250101T000000_IFCB134",
+                      class_names = c("Skeletonema_marinoi",
+                                      "Dinophysis_acuta"))
+
+  # A file without the dataset must be read in full, without the "Failed to
+  # read H5 file" warning that would silently drop it from the dataset.
+  expect_no_warning(result <- read_h5_classifications(tmp_dir))
+  expect_equal(nrow(result), 2)
+  expect_true(all(is.na(result$cell_count)))
+})
+
+test_that("read_h5_classifications combines chain-counted and pre-YOLO files", {
+  skip_if_not_installed("hdf5r")
+
+  tmp_dir <- file.path(tempdir(), paste0("h5_mixed_", Sys.getpid()))
+  dir.create(tmp_dir, recursive = TRUE, showWarnings = FALSE)
+  on.exit(unlink(tmp_dir, recursive = TRUE), add = TRUE)
+
+  write_test_class_h5(tmp_dir, "D20250101T000000_IFCB134",
+                      class_names = c("Pseudo-nitzschia_spp",
+                                      "Chaetoceros_spp_chain"),
+                      cell_count = c(6L, 8L))
+  write_test_class_h5(tmp_dir, "D20240101T000000_IFCB134",
+                      class_names = c("Pseudo-nitzschia_spp",
+                                      "Dinophysis_acuta"))
+
+  result <- read_h5_classifications(tmp_dir)
+  expect_equal(nrow(result), 4)
+  new_rows <- result$sample_name == "D20250101T000000_IFCB134"
+  expect_equal(result$cell_count[new_rows], c(6L, 8L))
+  expect_true(all(is.na(result$cell_count[!new_rows])))
 })
 
 test_that("copy_classification_files works when root is already a year dir", {
