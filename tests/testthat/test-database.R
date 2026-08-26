@@ -317,6 +317,34 @@ test_that("explicit unclassified annotations are allowed and manual", {
   expect_equal(loaded$is_manual, 1L)
 })
 
+test_that("unclassified survives filtering when batch has invalid classes", {
+  tmp_dir <- file.path(tempdir(), paste0("db_uncl_mix_", Sys.getpid()))
+  dir.create(tmp_dir, recursive = TRUE, showWarnings = FALSE)
+  on.exit(unlink(tmp_dir, recursive = TRUE), add = TRUE)
+
+  db_path <- file.path(tmp_dir, "annotations.sqlite")
+
+  # A batch mixing a valid class, an explicit unclassified, and an invalid
+  # class: only the invalid row may be dropped by the filter
+  annotations <- data.frame(
+    sample_name = "sample1", roi_number = 1:3,
+    class_name = c("ClassA", "unclassified", "BadClass"),
+    stringsAsFactors = FALSE
+  )
+  expect_warning(
+    result <- save_annotations_db(db_path, annotations,
+                                  class_list = c("ClassA", "ClassB")),
+    "BadClass"
+  )
+  expect_true(result)
+
+  loaded <- load_annotations_db(db_path)
+  loaded <- loaded[order(loaded$roi_number), ]
+  expect_equal(loaded$roi_number, c(1L, 2L))
+  expect_equal(loaded$class_name, c("ClassA", "unclassified"))
+  expect_equal(loaded$is_manual, c(1L, 1L))
+})
+
 test_that("init_db_schema migrates existing db without is_manual", {
   tmp <- tempfile(fileext = ".sqlite")
   on.exit(unlink(tmp), add = TRUE)

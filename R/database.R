@@ -124,7 +124,8 @@ save_annotations_db <- function(db_path, annotations, annotator = "",
     if (length(invalid) > 0) {
       warning("Rejected annotations with invalid class names: ",
               paste(invalid, collapse = ", "), call. = FALSE)
-      annotations <- annotations[annotations$class_name %in% class_list, ]
+      annotations <- annotations[
+        annotations$class_name %in% c(class_list, "unclassified"), ]
       if (nrow(annotations) == 0) return(TRUE)
     }
   }
