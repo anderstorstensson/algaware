@@ -89,21 +89,38 @@ init_db_schema <- function(con) {
 #' Stores annotations for selected images. Compatible with ClassiPyR's
 #' annotation format.
 #'
+#' When \code{backfill_rois} is supplied, every ROI in it that has no
+#' annotation row yet is additionally inserted as \code{"unclassified"} with
+#' \code{is_manual = 0} ("not yet reviewed"), so each saved sample is fully
+#' represented in the database. This matches ClassiPyR's
+#' \code{fill_unclassified_db()} convention, which downstream analysis
+#' relies on, and exports to .mat as \code{NaN} (unreviewed). The backfill
+#' never modifies existing rows, so incremental saves compose safely: images
+#' saved to one class now are not touched when other images of the same
+#' sample are saved to another class later.
+#'
 #' @param db_path Path to the SQLite database file.
 #' @param annotations A data.frame with columns: \code{sample_name},
 #'   \code{roi_number}, \code{class_name}.
 #' @param annotator Name of the annotator.
 #' @param class_list Character vector of all class names (for class_lists
 #'   table).
+#' @param backfill_rois Optional data.frame with columns \code{sample_name}
+#'   and \code{roi_number} listing the complete ROI set of the affected
+#'   samples (it may include the annotated ROIs; existing rows are skipped).
 #' @return Logical TRUE on success, FALSE on failure.
 #' @export
 save_annotations_db <- function(db_path, annotations, annotator = "",
-                                class_list = character(0)) {
+                                class_list = character(0),
+                                backfill_rois = NULL) {
   if (nrow(annotations) == 0) return(TRUE)
 
-  # Validate class names against class list
+  # Validate class names against class list. "unclassified" is always
+  # accepted even though it is not a database class: it is the explicit
+  # "reviewed and not identifiable" state, mirroring ClassiPyR.
   if (length(class_list) > 0) {
-    invalid <- setdiff(unique(annotations$class_name), class_list)
+    invalid <- setdiff(unique(annotations$class_name),
+                       c(class_list, "unclassified"))
     if (length(invalid) > 0) {
       warning("Rejected annotations with invalid class names: ",
               paste(invalid, collapse = ", "), call. = FALSE)
@@ -125,21 +142,39 @@ save_annotations_db <- function(db_path, annotations, annotator = "",
 
     # Upsert annotations: INSERT OR REPLACE inserts new rows or overwrites
     # existing ones matching the PRIMARY KEY (sample_name, roi_number).
-    # This means re-annotating the same image updates the record.
+    # This means re-annotating the same image updates the record. Binding
+    # whole vectors executes the statement once per row at C level.
     stmt <- DBI::dbSendStatement(con, "
       INSERT OR REPLACE INTO annotations
         (sample_name, roi_number, class_name, annotator, timestamp, is_manual)
       VALUES (?, ?, ?, ?, datetime('now'), 1)
     ")
-    for (i in seq_len(nrow(annotations))) {
-      DBI::dbBind(stmt, params = list(
-        annotations$sample_name[i],
-        as.integer(annotations$roi_number[i]),
-        annotations$class_name[i],
-        annotator
-      ))
-    }
+    DBI::dbBind(stmt, params = list(
+      annotations$sample_name,
+      as.integer(annotations$roi_number),
+      annotations$class_name,
+      rep(annotator, nrow(annotations))
+    ))
     DBI::dbClearResult(stmt)
+
+    # Backfill the rest of each sample as "unclassified". This must run
+    # after the upsert above: INSERT OR IGNORE only adds rows whose
+    # (sample_name, roi_number) is not yet in the table, so the ROIs just
+    # annotated -- and any annotation from an earlier save or from
+    # ClassiPyR -- are left untouched. is_manual = 0 marks the rows as not
+    # yet reviewed (ClassiPyR's fill_unclassified_db() convention).
+    if (!is.null(backfill_rois) && nrow(backfill_rois) > 0) {
+      bf_stmt <- DBI::dbSendStatement(con, "
+        INSERT OR IGNORE INTO annotations
+          (sample_name, roi_number, class_name, annotator, timestamp, is_manual)
+        VALUES (?, ?, 'unclassified', 'algaware', datetime('now'), 0)
+      ")
+      DBI::dbBind(bf_stmt, params = list(
+        backfill_rois$sample_name,
+        as.integer(backfill_rois$roi_number)
+      ))
+      DBI::dbClearResult(bf_stmt)
+    }
 
     # Save class list per sample
     if (length(class_list) > 0) {
