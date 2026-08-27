@@ -95,7 +95,10 @@ get_region_context <- function(rv) {
 #' Provides five validation actions:
 #' \enumerate{
 #'   \item \strong{Store Annotations}: save selected images to the SQLite
-#'     database (persistent, shared with ClassiPyR)
+#'     database (persistent, shared with ClassiPyR). The remaining ROIs of
+#'     each affected sample are backfilled as \code{"unclassified"} with
+#'     \code{is_manual = 0} (not yet reviewed) unless already annotated, so
+#'     saved samples are always fully represented in the database
 #'   \item \strong{Relabel Selected}: move selected images to a different class
 #'     (session-only, logged in rv$corrections)
 #'   \item \strong{Unclassify Selected}: move selected images to "unclassified"
@@ -220,10 +223,13 @@ mod_validation_server <- function(id, rv, config) {
         return()
       }
 
-      # Validate classes against class list before saving
+      # Validate classes against class list before saving. "unclassified"
+      # is always allowed even though it is not a database class: storing
+      # a reviewed image as unclassified is a legitimate annotation
+      # (saved with is_manual = 1, unlike the unreviewed backfill below).
       selected_classes <- unique(parsed$class_name)
       invalid_classes <- if (length(rv$class_list) > 0) {
-        setdiff(selected_classes, rv$class_list)
+        setdiff(selected_classes, c(rv$class_list, "unclassified"))
       } else {
         character(0)
       }
@@ -246,11 +252,25 @@ mod_validation_server <- function(id, rv, config) {
         return()
       }
 
+      # ClassiPyR and its downstream analysis expect every ROI of an
+      # annotated sample to have a database row, with untouched images as
+      # "unclassified". Pass the full ROI set of the affected samples (the
+      # H5 classifier output covers every ROI with an image) so
+      # save_annotations_db() can backfill the ones not yet in the
+      # database. Existing annotations are never overwritten by this, so
+      # saving some images to one class now and others to another class
+      # later works as expected.
+      affected_samples <- unique(parsed$sample_name)
+      backfill_rois <- rv$classifications[
+        rv$classifications$sample_name %in% affected_samples,
+        c("sample_name", "roi_number"), drop = FALSE]
+
       db_path <- get_db_path(config$db_folder)
       success <- save_annotations_db(
         db_path, parsed,
         annotator = config$annotator,
-        class_list = rv$class_list
+        class_list = rv$class_list,
+        backfill_rois = backfill_rois
       )
 
       if (success) {

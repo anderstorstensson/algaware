@@ -8,7 +8,8 @@ save_annotations_db(
   db_path,
   annotations,
   annotator = "",
-  class_list = character(0)
+  class_list = character(0),
+  backfill_rois = NULL
 )
 }
 \arguments{
@@ -21,6 +22,10 @@ save_annotations_db(
 
 \item{class_list}{Character vector of all class names (for class_lists
 table).}
+
+\item{backfill_rois}{Optional data.frame with columns \code{sample_name}
+and \code{roi_number} listing the complete ROI set of the affected
+samples (it may include the annotated ROIs; existing rows are skipped).}
 }
 \value{
 Logical TRUE on success, FALSE on failure.
@@ -28,4 +33,15 @@ Logical TRUE on success, FALSE on failure.
 \description{
 Stores annotations for selected images. Compatible with ClassiPyR's
 annotation format.
+}
+\details{
+When \code{backfill_rois} is supplied, every ROI in it that has no
+annotation row yet is additionally inserted as \code{"unclassified"} with
+\code{is_manual = 0} ("not yet reviewed"), so each saved sample is fully
+represented in the database. This matches ClassiPyR's
+\code{fill_unclassified_db()} convention, which downstream analysis
+relies on, and exports to .mat as \code{NaN} (unreviewed). The backfill
+never modifies existing rows, so incremental saves compose safely: images
+saved to one class now are not touched when other images of the same
+sample are saved to another class later.
 }

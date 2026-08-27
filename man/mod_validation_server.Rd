@@ -20,7 +20,10 @@ NULL (side effects only).
 Provides five validation actions:
 \enumerate{
 \item \strong{Store Annotations}: save selected images to the SQLite
-database (persistent, shared with ClassiPyR)
+database (persistent, shared with ClassiPyR). The remaining ROIs of
+each affected sample are backfilled as \code{"unclassified"} with
+\code{is_manual = 0} (not yet reviewed) unless already annotated, so
+saved samples are always fully represented in the database
 \item \strong{Relabel Selected}: move selected images to a different class
 (session-only, logged in rv$corrections)
 \item \strong{Unclassify Selected}: move selected images to "unclassified"
