@@ -8,7 +8,7 @@
 ## Citation
 
 Source:
-[`DESCRIPTION`](https://github.com/nodc-sweden/ifcb-algaware/blob/main/DESCRIPTION)
+[`DESCRIPTION`](https://github.com/nodc-sweden/ifcb-algaware/blob/0.3.1/DESCRIPTION)
 
 Torstensson A (2026). *algaware: Interactive IFCB Phytoplankton
 Reporting Tool*. R package version 0.3.1,
