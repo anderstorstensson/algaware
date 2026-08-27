@@ -35,7 +35,7 @@ footer {
 
     <a class="navbar-brand me-2" href="../index.html">algaware</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.3.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.3.0.9000</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -70,9 +70,16 @@ footer {
   <main id="main" class="col-md-9"><div class="page-header">
 
       <h1>Changelog</h1>
-      <small>Source: <a href="https://github.com/nodc-sweden/ifcb-algaware/blob/0.3.0/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
+      <small>Source: <a href="https://github.com/nodc-sweden/ifcb-algaware/blob/main/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="development version" id="algaware-development-version">algaware (development version)<a class="anchor" aria-label="anchor" href="#algaware-development-version"></a></h2>
+<div class="section level3">
+<h3 id="new-features-development-version">New features<a class="anchor" aria-label="anchor" href="#new-features-development-version"></a></h3>
+<ul><li>Storing annotations now backfills the remaining ROIs of each affected sample as <code>"unclassified"</code> with <code>is_manual = 0</code> (not yet reviewed), so every saved sample is fully represented in the shared annotations database – the same convention as ClassiPyR’s <code>fill_unclassified_db()</code>, which downstream analysis relies on. The backfill never overwrites existing annotations, so saving some images of a sample to one class and other images to another class later works as before. Explicitly storing reviewed images as <code>"unclassified"</code> is now also accepted (saved with <code>is_manual = 1</code>).</li>
+</ul></div>
+</div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="0.3.0" id="algaware-030">algaware 0.3.0<a class="anchor" aria-label="anchor" href="#algaware-030"></a></h2>
 <div class="section level3">

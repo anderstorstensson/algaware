@@ -1,5 +1,19 @@
 # Changelog
 
+## algaware (development version)
+
+### New features
+
+- Storing annotations now backfills the remaining ROIs of each affected
+  sample as `"unclassified"` with `is_manual = 0` (not yet reviewed), so
+  every saved sample is fully represented in the shared annotations
+  database – the same convention as ClassiPyR’s
+  `fill_unclassified_db()`, which downstream analysis relies on. The
+  backfill never overwrites existing annotations, so saving some images
+  of a sample to one class and other images to another class later works
+  as before. Explicitly storing reviewed images as `"unclassified"` is
+  now also accepted (saved with `is_manual = 1`).
+
 ## algaware 0.3.0
 
 ### New features

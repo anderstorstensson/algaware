@@ -3,7 +3,10 @@
 Provides five validation actions:
 
 1.  **Store Annotations**: save selected images to the SQLite database
-    (persistent, shared with ClassiPyR)
+    (persistent, shared with ClassiPyR). The remaining ROIs of each
+    affected sample are backfilled as `"unclassified"` with
+    `is_manual = 0` (not yet reviewed) unless already annotated, so
+    saved samples are always fully represented in the database
 
 2.  **Relabel Selected**: move selected images to a different class
     (session-only, logged in rv\$corrections)
