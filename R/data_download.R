@@ -224,10 +224,30 @@ fetch_image_counts <- function(dashboard_url, dataset_name,
   })
 }
 
+#' Download tuning parameters
+#'
+#' \code{iRfcb::ifcb_download_dashboard_data()} downloads in parallel chunks
+#' and sleeps unconditionally after every chunk (its defaults: 5 files per
+#' chunk, 2 s sleep). With the 4 small files a sample needs, that idle time
+#' dominates a first-time cruise load, so algaware defaults to larger chunks
+#' and a much shorter politeness delay. Override for slow or third-party
+#' dashboards via \code{options(algaware.download_parallel = ,
+#' algaware.download_sleep = )}.
+#'
+#' @return A list with \code{parallel} and \code{sleep} values.
+#' @keywords internal
+download_tuning <- function() {
+  list(
+    parallel = getOption("algaware.download_parallel", 10),
+    sleep = getOption("algaware.download_sleep", 0.2)
+  )
+}
+
 #' Download raw IFCB files for selected bins
 #'
 #' Downloads .roi, .adc, and .hdr files to local storage. Skips files that
-#' already exist.
+#' already exist. Chunk size and inter-chunk delay are tunable via
+#' \code{options()} (see \code{download_tuning()}).
 #'
 #' @param dashboard_url Dashboard base URL.
 #' @param sample_ids Character vector of sample PIDs.
@@ -267,12 +287,15 @@ download_raw_data <- function(dashboard_url, sample_ids, dest_dir,
     progress_callback(0, length(needed), "Downloading raw data...")
   }
 
+  tuning <- download_tuning()
   ok <- tryCatch({
     iRfcb::ifcb_download_dashboard_data(
       dashboard_url = dashboard_url,
       samples = needed,
       file_types = c("roi", "adc", "hdr"),
       dest_dir = dest_dir,
+      parallel_downloads = tuning$parallel,
+      sleep_time = tuning$sleep,
       quiet = TRUE
     )
     TRUE
@@ -327,12 +350,15 @@ download_features <- function(dashboard_url, sample_ids, dest_dir,
     progress_callback(0, length(needed), "Downloading features...")
   }
 
+  tuning <- download_tuning()
   tryCatch(
     iRfcb::ifcb_download_dashboard_data(
       dashboard_url = dashboard_url,
       samples = needed,
       file_types = "features",
       dest_dir = dest_dir,
+      parallel_downloads = tuning$parallel,
+      sleep_time = tuning$sleep,
       quiet = TRUE
     ),
     error = function(e) {
