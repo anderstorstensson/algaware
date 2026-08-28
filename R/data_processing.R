@@ -38,6 +38,25 @@ summarize_biovolumes <- function(feature_folder, hdr_folder, classifications,
     verbose = FALSE
   )
 
+  finalize_biovolume_data(biovolume_data, taxa_lookup, non_bio_classes)
+}
+
+#' Join taxonomy onto biovolume data and drop non-biological classes
+#'
+#' Shared tail of \code{summarize_biovolumes()} and
+#' \code{summarize_biovolumes_cached()}: joins the taxa lookup, fills missing
+#' names/flags, and removes non-biological classes.
+#'
+#' @param biovolume_data Per-sample, per-class biovolume data.frame with a
+#'   \code{class} column.
+#' @param taxa_lookup A data.frame with columns \code{clean_names},
+#'   \code{name}, \code{AphiaID} (and optionally \code{sflag}).
+#' @param non_bio_classes Character vector of non-biological class names to
+#'   exclude.
+#' @return The joined and filtered data.frame.
+#' @keywords internal
+finalize_biovolume_data <- function(biovolume_data, taxa_lookup,
+                                    non_bio_classes = character(0)) {
   # Join with taxonomy (include sflag if present)
   lookup_cols <- intersect(c("clean_names", "name", "sflag", "AphiaID"),
                            names(taxa_lookup))
@@ -49,8 +68,11 @@ summarize_biovolumes <- function(feature_folder, hdr_folder, classifications,
     all.x = TRUE
   )
 
-  # Ensure sflag column exists even if not in taxa_lookup
-  if (!"sflag" %in% names(biovolume_data)) biovolume_data$sflag <- ""
+  # Ensure sflag column exists even if not in taxa_lookup (rep() keeps the
+  # assignment valid for zero-row inputs, e.g. an empty cached summary)
+  if (!"sflag" %in% names(biovolume_data)) {
+    biovolume_data$sflag <- rep("", nrow(biovolume_data))
+  }
 
   # Fall back to class name when taxa lookup has no entry or a blank name.
   # This prevents NA/empty names from merging distinct classes in aggregation.
