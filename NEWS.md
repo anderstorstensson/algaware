@@ -1,3 +1,14 @@
+# algaware (development version)
+
+## Bug fixes
+
+- The grey background fill of report mosaics now matches the actual image
+  backdrop. A channel-indexing bug made the fill color the median of each
+  image's top pixel rows instead of the whole-image median, producing too
+  bright backgrounds for instruments with a bright top-edge artifact (e.g.
+  the west coast mosaics). A fractional median could also silently replace
+  the fill with the bright `#F0F0F0` fallback; medians are now rounded.
+
 # algaware 0.3.1
 
 ## New features
