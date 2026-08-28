@@ -37,6 +37,7 @@ Imports:
     viridis,
     rectpacker (>= 1.0.0),
     httr2,
+    readr,
     cmocean,
     zip,
     yaml

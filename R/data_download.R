@@ -59,27 +59,76 @@ resolve_classification_path <- function(path) {
 #' Fetch metadata from the IFCB Dashboard
 #'
 #' Wraps \code{iRfcb::ifcb_download_dashboard_metadata()} and extracts
-#' available cruise numbers.
+#' available cruise numbers. When \code{cache_dir} is given, the download is
+#' cached there as an RDS file and subsequent fetches only download bins
+#' sampled on or after the newest cached day (see \code{R/metadata_cache.R}),
+#' which makes refetching a large archive a matter of seconds.
 #'
 #' @param dashboard_url Dashboard base URL.
 #' @param dataset_name Dataset name (e.g. "RV_Svea").
-#' @return A list with \code{metadata} (data.frame) and \code{cruise_numbers}
-#'   (character vector, possibly empty if no cruise column exists).
+#' @param cache_dir Optional local storage directory for the metadata cache.
+#'   NULL (default) disables caching and always downloads the full export.
+#' @param force_full If TRUE, ignore any cache and download the full export
+#'   (the cache is still refreshed afterwards).
+#' @return A list with \code{metadata} (data.frame), \code{cruise_numbers}
+#'   (character vector, possibly empty if no cruise column exists),
+#'   \code{incremental} (logical; TRUE when a cached fetch was updated
+#'   incrementally), and \code{n_new} (number of bins added or refreshed).
 #' @export
-fetch_dashboard_metadata <- function(dashboard_url, dataset_name = NULL) {
-  metadata <- iRfcb::ifcb_download_dashboard_metadata(
-    dashboard_url,
-    dataset_name = dataset_name,
-    quiet = TRUE
-  )
+fetch_dashboard_metadata <- function(dashboard_url, dataset_name = NULL,
+                                     cache_dir = NULL, force_full = FALSE) {
+  use_cache <- !is.null(cache_dir) && nzchar(cache_dir)
+  cache_file <- if (use_cache) metadata_cache_path(cache_dir) else NULL
+
+  cached <- NULL
+  if (use_cache && !force_full) {
+    cached <- load_metadata_cache(cache_file, dashboard_url, dataset_name)
+    # Incremental fetching needs a time column to define the window; fall
+    # back to a full download when the cached export has none.
+    if (!is.null(cached) && is.null(metadata_time_col(cached))) cached <- NULL
+  }
+
+  incremental <- FALSE
+  if (is.null(cached)) {
+    metadata <- iRfcb::ifcb_download_dashboard_metadata(
+      dashboard_url,
+      dataset_name = dataset_name,
+      quiet = TRUE
+    )
+    n_new <- nrow(metadata)
+  } else {
+    time_col <- metadata_time_col(cached)
+    last_date <- suppressWarnings(
+      max(as.Date(cached[[time_col]]), na.rm = TRUE)
+    )
+    if (is.finite(last_date)) {
+      fresh <- fetch_metadata_window(dashboard_url, dataset_name,
+                                     start_date = last_date)
+      metadata <- merge_metadata_increment(cached, fresh, last_date)
+      n_new <- nrow(fresh)
+      incremental <- TRUE
+    } else {
+      metadata <- iRfcb::ifcb_download_dashboard_metadata(
+        dashboard_url,
+        dataset_name = dataset_name,
+        quiet = TRUE
+      )
+      n_new <- nrow(metadata)
+    }
+  }
+
+  if (use_cache) {
+    save_metadata_cache(cache_file, dashboard_url, dataset_name, metadata)
+  }
 
   cruise_numbers <- character(0)
   if ("cruise" %in% names(metadata)) {
-    cruise_numbers <- unique(metadata$cruise)
+    cruise_numbers <- unique(as.character(metadata$cruise))
     cruise_numbers <- cruise_numbers[!is.na(cruise_numbers) & nzchar(cruise_numbers)]
   }
 
-  list(metadata = metadata, cruise_numbers = cruise_numbers)
+  list(metadata = metadata, cruise_numbers = cruise_numbers,
+       incremental = incremental, n_new = n_new)
 }
 
 #' Filter metadata by cruise number or date range
