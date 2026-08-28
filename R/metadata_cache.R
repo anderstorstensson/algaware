@@ -20,6 +20,23 @@ metadata_cache_path <- function(storage_dir) {
   file.path(storage_dir, "metadata_cache.rds")
 }
 
+#' Delete the metadata cache
+#'
+#' Used by the "Clear Metadata Cache" button in Settings: with the cache
+#' gone, the next Fetch Metadata downloads the complete export again. This
+#' is the escape hatch for edits to old bins (e.g. skip flags or cruise
+#' numbers changed on the dashboard) that the incremental fetch cannot see.
+#'
+#' @param storage_dir Local storage base directory.
+#' @return Invisible logical: TRUE when a cache file existed and was removed.
+#' @export
+clear_metadata_cache <- function(storage_dir) {
+  cache_file <- metadata_cache_path(storage_dir)
+  existed <- file.exists(cache_file)
+  if (existed) unlink(cache_file)
+  invisible(existed)
+}
+
 #' Load cached dashboard metadata
 #'
 #' @param cache_file Path from \code{metadata_cache_path()}.

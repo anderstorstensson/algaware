@@ -11,9 +11,11 @@
   kept as an automatic fallback when no cache is available.
 - Fetching metadata is now incremental: the dashboard export is cached in
   local storage and subsequent fetches download only bins sampled on or
-  after the newest cached day. A new "Full refresh" link below the Fetch
-  Metadata button forces a complete re-download (use it when older bins
-  were edited on the dashboard, e.g. skip flags or cruise numbers).
+  after the newest cached day. A "Clear Metadata Cache" button in Settings
+  makes the next fetch download the complete export again (use it when
+  older bins were edited on the dashboard, e.g. skip flags or cruise
+  numbers). The cache also resets automatically when the dashboard URL or
+  dataset changes.
 - Station descriptions in the report are now generated with parallel LLM
   requests on OpenAI, collapsing one round trip per station into roughly
   a single request's latency. Gemini stays sequential because of its
