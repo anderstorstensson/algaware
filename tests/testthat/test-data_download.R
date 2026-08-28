@@ -515,3 +515,45 @@ test_that("filter_metadata drops NA cruise and NA date rows", {
                              date_to = "2022-01-31")
   expect_equal(by_date$pid, c("a", "c"))
 })
+
+# -- download tuning ----------------------------------------------------------
+
+test_that("download_tuning defaults and honours options", {
+  withr::with_options(list(algaware.download_parallel = NULL,
+                           algaware.download_sleep = NULL), {
+    tuning <- algaware:::download_tuning()
+    expect_equal(tuning$parallel, 10)
+    expect_equal(tuning$sleep, 0.2)
+  })
+  withr::with_options(list(algaware.download_parallel = 3,
+                           algaware.download_sleep = 2), {
+    tuning <- algaware:::download_tuning()
+    expect_equal(tuning$parallel, 3)
+    expect_equal(tuning$sleep, 2)
+  })
+})
+
+test_that("download functions pass tuning to iRfcb", {
+  dir <- withr::local_tempdir()
+  seen <- list()
+  fake_download <- function(...) {
+    seen <<- list(...)
+    NULL
+  }
+
+  mockery::stub(download_raw_data, "iRfcb::ifcb_download_dashboard_data",
+                fake_download)
+  download_raw_data("https://ifcb.example.com",
+                    "D20250714T110535_IFCB134", dir)
+  expect_equal(seen$parallel_downloads, 10)
+  expect_equal(seen$sleep_time, 0.2)
+
+  seen <- list()
+  mockery::stub(download_features, "iRfcb::ifcb_download_dashboard_data",
+                fake_download)
+  withr::with_options(list(algaware.download_sleep = 1.5), {
+    download_features("https://ifcb.example.com",
+                      "D20250714T110535_IFCB134", dir)
+  })
+  expect_equal(seen$sleep_time, 1.5)
+})
