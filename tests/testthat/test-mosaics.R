@@ -14,6 +14,37 @@ test_that("compute_median_color handles errors gracefully", {
   expect_equal(result, "#F0F0F0")
 })
 
+test_that("compute_median_color indexes channels, not pixel rows", {
+  # A solid color with distinct R/G/B values: row-wise indexing of the
+  # transposed bitmap would mix channels and return a grey (#404040 here).
+  img <- magick::image_blank(10, 10, color = "#204060")
+  result <- algaware:::compute_median_color(list(img))
+  expect_equal(result, "#204060")
+})
+
+test_that("compute_median_color ignores bright top-edge artifacts", {
+  # Bright band across the top rows (as seen in some IFCB instruments) must
+  # not dominate the fill; the majority background color should win.
+  top <- magick::image_blank(10, 3, color = "#FFFFFF")
+  body <- magick::image_blank(10, 17, color = "#969696")
+  img <- magick::image_append(c(top, body), stack = TRUE)
+  result <- algaware:::compute_median_color(list(img))
+  expect_equal(result, "#969696")
+})
+
+test_that("compute_median_color survives fractional medians", {
+  # Two single-pixel images with adjacent grey levels give a median of x.5,
+  # which sprintf("%X") rejects; the result must be a rounded real color,
+  # not the #F0F0F0 error fallback.
+  imgs <- list(
+    magick::image_blank(1, 1, color = "#646464"),
+    magick::image_blank(1, 1, color = "#656565")
+  )
+  result <- algaware:::compute_median_color(imgs)
+  expect_match(result, "^#[0-9A-F]{6}$")
+  expect_false(result == "#F0F0F0")
+})
+
 test_that("create_mosaic works with real images", {
   tmp_dir <- file.path(tempdir(), paste0("mosaic_test_", Sys.getpid()))
   dir.create(tmp_dir, recursive = TRUE, showWarnings = FALSE)

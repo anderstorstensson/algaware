@@ -445,13 +445,20 @@ justify_row <- function(imgs_row, widths_row, target_row_width,
 #' @keywords internal
 compute_median_color <- function(img_list) {
   tryCatch({
+    # as.integer() transposes magick's channels-first bitmap to
+    # height x width x channel, so channels are indexed on the third margin.
     arrays <- lapply(img_list, function(img) {
       as.integer(magick::image_data(img, channels = "rgb"))
     })
-    r <- unlist(lapply(arrays, function(a) a[1, , ]))
-    g <- unlist(lapply(arrays, function(a) a[2, , ]))
-    b <- unlist(lapply(arrays, function(a) a[3, , ]))
-    sprintf("#%02X%02X%02X", stats::median(r), stats::median(g), stats::median(b))
+    r <- unlist(lapply(arrays, function(a) a[, , 1]))
+    g <- unlist(lapply(arrays, function(a) a[, , 2]))
+    b <- unlist(lapply(arrays, function(a) a[, , 3]))
+    # median() of an even-length vector can be fractional, which sprintf("%X")
+    # rejects; round to keep the fallback from masking that as an error.
+    sprintf("#%02X%02X%02X",
+            as.integer(round(stats::median(r))),
+            as.integer(round(stats::median(g))),
+            as.integer(round(stats::median(b))))
   }, error = function(e) {
     "#F0F0F0"
   })
