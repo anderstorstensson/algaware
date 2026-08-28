@@ -299,6 +299,31 @@ generate_station_description <- function(station_data, taxa_lookup = NULL,
                                          provider = NULL,
                                          unclassified_pct = NULL,
                                          chl_measure = "fluorescence") {
+  prompts <- build_station_description_prompts(
+    station_data, taxa_lookup,
+    all_stations_summary = all_stations_summary,
+    phyto_groups = phyto_groups,
+    unclassified_pct = unclassified_pct,
+    chl_measure = chl_measure
+  )
+  call_llm(prompts$system, prompts$user, provider = provider)
+}
+
+#' Build the prompts for a station description
+#'
+#' The prompt-building half of \code{generate_station_description()},
+#' exposed separately so \code{add_station_sections()} can build all
+#' station prompts up front and perform the LLM requests in parallel
+#' (\code{call_llm_batch()}).
+#'
+#' @inheritParams generate_station_description
+#' @return A list with \code{system} and \code{user} prompt strings.
+#' @keywords internal
+build_station_description_prompts <- function(station_data, taxa_lookup = NULL,
+                                              all_stations_summary = NULL,
+                                              phyto_groups = NULL,
+                                              unclassified_pct = NULL,
+                                              chl_measure = "fluorescence") {
   guide <- load_writing_guide()
   station_text <- format_station_data_for_prompt(station_data, taxa_lookup,
                                                  unclassified_pct = unclassified_pct,
@@ -375,5 +400,5 @@ generate_station_description <- function(station_data, taxa_lookup = NULL,
     "when 'spp.' or 'sp.' follows."
   )
 
-  call_llm(system_prompt, user_prompt, provider = provider)
+  list(system = system_prompt, user = user_prompt)
 }

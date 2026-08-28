@@ -1099,3 +1099,129 @@ test_that("bloom_alert_note and cruise summary survive an all-unclassified input
   expect_no_error(algaware:::format_cruise_summary_for_prompt(df))
   expect_no_error(algaware:::bloom_alert_note(df))
 })
+
+# -- llm_supports_parallel ----------------------------------------------------
+
+test_that("llm_supports_parallel is TRUE for openai only", {
+  expect_true(algaware:::llm_supports_parallel("openai"))
+  expect_false(algaware:::llm_supports_parallel("gemini"))
+  expect_false(algaware:::llm_supports_parallel("none"))
+  withr::with_envvar(c(OPENAI_API_KEY = "sk-test", GEMINI_API_KEY = ""), {
+    expect_true(algaware:::llm_supports_parallel(NULL))
+  })
+  withr::with_envvar(c(OPENAI_API_KEY = "", GEMINI_API_KEY = "AIza-test"), {
+    expect_false(algaware:::llm_supports_parallel(NULL))
+  })
+})
+
+# -- call_llm_batch -----------------------------------------------------------
+
+test_that("call_llm_batch sequential path reports progress and errors", {
+  batch <- algaware:::call_llm_batch
+  calls <- 0
+  mockery::stub(batch, "call_llm", function(system_prompt, user_prompt, ...) {
+    calls <<- calls + 1
+    if (grepl("boom", user_prompt)) stop("api down")
+    paste("text for", user_prompt)
+  })
+
+  progress <- list()
+  prompts <- list(
+    list(system = "s", user = "one"),
+    list(system = "s", user = "boom"),
+    list(system = "s", user = "three")
+  )
+  results <- batch(prompts, provider = "gemini",
+                   on_progress = function(i, n) {
+                     progress[[length(progress) + 1]] <<- c(i, n)
+                   })
+
+  expect_equal(calls, 3)
+  expect_equal(length(progress), 3)
+  expect_equal(progress[[2]], c(2, 3))
+  expect_equal(results[[1]]$text, "text for one")
+  expect_null(results[[1]]$error)
+  expect_null(results[[2]]$text)
+  expect_match(results[[2]]$error, "api down")
+  expect_equal(results[[3]]$text, "text for three")
+})
+
+test_that("call_llm_batch parallel path maps responses and conditions", {
+  withr::with_envvar(c(OPENAI_API_KEY = "sk-test"), {
+    batch <- algaware:::call_llm_batch
+    fake_resp <- function(text) {
+      structure(list(payload = list(choices = list(list(
+        message = list(content = text), finish_reason = "stop"
+      )))), class = "httr2_response")
+    }
+    mockery::stub(batch, "httr2::req_perform_parallel", function(reqs, ...) {
+      list(
+        fake_resp("first text"),
+        simpleError("timeout"),
+        fake_resp("third text")
+      )
+    })
+    mockery::stub(batch, "httr2::resp_body_json",
+                  function(resp, ...) resp$payload)
+
+    prompts <- list(
+      list(system = "s", user = "a"),
+      list(system = "s", user = "b"),
+      list(system = "s", user = "c")
+    )
+    results <- batch(prompts, provider = "openai")
+
+    expect_equal(results[[1]]$text, "first text")
+    expect_null(results[[2]]$text)
+    expect_match(results[[2]]$error, "timeout")
+    expect_equal(results[[3]]$text, "third text")
+  })
+})
+
+test_that("call_llm_batch returns empty list for no prompts", {
+  expect_equal(algaware:::call_llm_batch(list(), provider = "openai"), list())
+})
+
+# -- generate_station_descriptions --------------------------------------------
+
+test_that("generate_station_descriptions returns placeholders without LLM", {
+  visits <- data.frame(visit_id = c("v1", "v2"),
+                       STATION_NAME_SHORT = c("A", "B"),
+                       stringsAsFactors = FALSE)
+  result <- algaware:::generate_station_descriptions(
+    visits, data.frame(), NULL, use_llm = FALSE
+  )
+  expect_equal(result, rep("[Write station description here.]", 2))
+})
+
+test_that("generate_station_descriptions maps batch results per station", {
+  gen <- algaware:::generate_station_descriptions
+  mockery::stub(gen, "build_station_description_prompts",
+                function(...) list(system = "s", user = "u"))
+  mockery::stub(gen, "call_llm_batch", function(prompts, ...) {
+    list(
+      list(text = "station A text", error = NULL),
+      list(text = NULL, error = "rate limited")
+    )
+  })
+  mockery::stub(gen, "llm_supports_parallel", TRUE)
+
+  visits <- data.frame(visit_id = c("v1", "v2"),
+                       STATION_NAME_SHORT = c("A", "B"),
+                       stringsAsFactors = FALSE)
+  summary_df <- data.frame(visit_id = c("v1", "v2"),
+                           stringsAsFactors = FALSE)
+
+  progress_msgs <- character(0)
+  expect_warning(
+    result <- gen(visits, summary_df, NULL, use_llm = TRUE,
+                  llm_provider = "openai",
+                  on_llm_progress = function(detail) {
+                    progress_msgs <<- c(progress_msgs, detail)
+                  }),
+    "rate limited"
+  )
+  expect_equal(result[1], "station A text")
+  expect_match(result[2], "LLM generation failed")
+  expect_match(progress_msgs[1], "2 station descriptions")
+})
