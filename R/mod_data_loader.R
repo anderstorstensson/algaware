@@ -32,13 +32,6 @@ mod_data_loader_ui <- function(id) {
     shiny::actionButton(ns("fetch_metadata"), "Fetch Metadata",
                         class = "btn-outline-primary btn-sm mb-2",
                         icon = shiny::icon("download")),
-    bslib::tooltip(
-      shiny::actionLink(ns("fetch_metadata_full"), "Full refresh",
-                        style = "font-size: 11px; display: block; margin-top: -6px; margin-bottom: 6px;"),
-      paste("Re-download the complete metadata export instead of only bins",
-            "newer than the local cache. Use when older bins were edited",
-            "on the dashboard (e.g. skip flags or cruise numbers).")
-    ),
     shiny::actionButton(ns("load_data"), "Load Data",
                         class = "btn-primary mb-2",
                         icon = shiny::icon("database")),
@@ -427,9 +420,10 @@ mod_data_loader_server <- function(id, config, rv) {
       )
     })
 
-    # Fetch metadata from dashboard. Incremental by default: only bins newer
-    # than the local cache are downloaded; force_full re-downloads everything.
-    run_metadata_fetch <- function(force_full = FALSE) {
+    # Fetch metadata from dashboard. Incremental: only bins newer than the
+    # local cache are downloaded. A full re-download happens automatically
+    # when there is no cache -- "Clear Metadata Cache" in Settings forces it.
+    run_metadata_fetch <- function() {
       if (!nzchar(config$dashboard_url %||% "")) {
         shiny::showNotification(
           "Please enter a Dashboard URL in Settings first.",
@@ -449,8 +443,7 @@ mod_data_loader_server <- function(id, config, rv) {
         result <- fetch_dashboard_metadata(
           config$dashboard_url,
           dataset_name = config$dashboard_dataset,
-          cache_dir = config$local_storage_path,
-          force_full = force_full
+          cache_dir = config$local_storage_path
         )
         rv$dashboard_metadata <- result$metadata
         rv$cruise_numbers <- result$cruise_numbers
@@ -482,8 +475,6 @@ mod_data_loader_server <- function(id, config, rv) {
     }
 
     shiny::observeEvent(input$fetch_metadata, run_metadata_fetch())
-    shiny::observeEvent(input$fetch_metadata_full,
-                        run_metadata_fetch(force_full = TRUE))
 
     # Load and process data
     shiny::observeEvent(input$load_data, {

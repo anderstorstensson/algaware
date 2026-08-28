@@ -175,3 +175,12 @@ test_that("fetch without cache_dir behaves like before", {
   expect_false(result$incremental)
   expect_equal(result$metadata, md)
 })
+
+test_that("clear_metadata_cache removes the cache file", {
+  dir <- withr::local_tempdir()
+  expect_false(clear_metadata_cache(dir))
+  algaware:::save_metadata_cache(algaware:::metadata_cache_path(dir),
+                                 "u", "d", make_metadata("s1", "2025-07-01"))
+  expect_true(clear_metadata_cache(dir))
+  expect_false(file.exists(algaware:::metadata_cache_path(dir)))
+})
