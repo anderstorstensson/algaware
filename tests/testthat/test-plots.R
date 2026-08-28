@@ -368,3 +368,15 @@ test_that("create_heatmap renders taxon names containing angle brackets", {
   expect_no_error(ggplot2::ggsave(tmp, p, width = 5, height = 4, dpi = 50))
   expect_true(file.exists(tmp))
 })
+
+# -- sweden_coastline caching -------------------------------------------------
+
+test_that("sweden_coastline returns a cropped sf layer and caches it", {
+  first <- algaware:::sweden_coastline()
+  expect_s3_class(first, "sf")
+  bb <- sf::st_bbox(first)
+  expect_gte(bb["xmin"], 4 - 1e-6)
+  expect_lte(bb["xmax"], 28 + 1e-6)
+  # Second call returns the cached object
+  expect_identical(first, algaware:::sweden_coastline())
+})
