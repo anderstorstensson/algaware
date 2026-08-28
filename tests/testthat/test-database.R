@@ -260,7 +260,7 @@ test_that("save_annotations_db backfills missing ROIs as unclassified", {
                  "unclassified"))
   expect_equal(loaded$is_manual, c(0L, 1L, 0L, 1L, 0L))
   expect_equal(loaded$annotator,
-               c("algaware", "anders", "algaware", "anders", "algaware"))
+               c("anders", "anders", "anders", "anders", "anders"))
 })
 
 test_that("backfill never overwrites existing annotations across saves", {
