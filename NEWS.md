@@ -9,6 +9,18 @@
   are cached per session as well, so recomputing summaries after
   corrections is near-instant and works offline. The file-based path is
   kept as an automatic fallback when no cache is available.
+- Fetching metadata is now incremental: the dashboard export is cached in
+  local storage and subsequent fetches download only bins sampled on or
+  after the newest cached day. A new "Full refresh" link below the Fetch
+  Metadata button forces a complete re-download (use it when older bins
+  were edited on the dashboard, e.g. skip flags or cruise numbers).
+- Station descriptions in the report are now generated with parallel LLM
+  requests on OpenAI, collapsing one round trip per station into roughly
+  a single request's latency. Gemini stays sequential because of its
+  free-tier rate limit.
+- Maps reuse a session-cached coastline polygon cropped to Swedish waters,
+  and mosaic/report image extraction skips ROI PNGs already extracted
+  earlier in the session, so repeated report generation is much faster.
 
 # algaware 0.3.1
 
