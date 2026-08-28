@@ -21,6 +21,9 @@
 - Maps reuse a session-cached coastline polygon cropped to Swedish waters,
   and mosaic/report image extraction skips ROI PNGs already extracted
   earlier in the session, so repeated report generation is much faster.
+- Raw data and feature downloads use larger parallel chunks with a much
+  shorter inter-chunk delay (previously ~2 s of idle time per 5 files),
+  tunable via `options(algaware.download_parallel, algaware.download_sleep)`.
 
 # algaware 0.3.1
 
