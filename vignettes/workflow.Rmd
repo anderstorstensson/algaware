@@ -7,7 +7,7 @@ vignette: >
   %\VignetteEncoding{UTF-8}
 ---
 
-```{r setup, include=FALSE}
+```{r setup, include=FALSE, purl=FALSE}
 knitr::opts_chunk$set(echo = TRUE, eval = FALSE)
 ```
 
@@ -79,7 +79,7 @@ The application has two main areas:
 
 ## 1. Launch the application
 
-```{r launch}
+```{r launch, purl=FALSE}
 library(algaware)
 launch_app()
 ```
