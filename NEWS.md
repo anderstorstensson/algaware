@@ -1,3 +1,15 @@
+# algaware (development version)
+
+## Performance
+
+- Summary recomputation (report generation, sample exclusions, and the
+  stale-summary refresh) now runs from an in-memory per-ROI biovolume cache
+  built once when the data is loaded, instead of re-reading every feature
+  CSV and `.hdr` file from disk each time. Per-class WoRMS diatom lookups
+  are cached per session as well, so recomputing summaries after
+  corrections is near-instant and works offline. The file-based path is
+  kept as an automatic fallback when no cache is available.
+
 # algaware 0.3.1
 
 ## New features

@@ -4,7 +4,13 @@
 \alias{process_classifications}
 \title{Process classifications and compute station summaries}
 \usage{
-process_classifications(config, dirs, sample_ids, matched)
+process_classifications(
+  config,
+  dirs,
+  sample_ids,
+  matched,
+  cached_diatom_status = NULL
+)
 }
 \arguments{
 \item{config}{Reactive values with settings (\code{non_biological_classes},
@@ -15,6 +21,10 @@ process_classifications(config, dirs, sample_ids, matched)
 \item{sample_ids}{Character vector of sample PIDs to process.}
 
 \item{matched}{Data frame of station-matched metadata.}
+
+\item{cached_diatom_status}{Optional data.frame from a previous
+\code{resolve_diatom_status()} call (e.g. an earlier load in the same
+session), so already-resolved classes skip the WoRMS lookup.}
 }
 \value{
 A named list, or NULL if no H5 classifications were found.

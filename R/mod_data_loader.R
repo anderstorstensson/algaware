@@ -121,9 +121,13 @@ download_all_data <- function(config, sample_ids, storage) {
 #' @param dirs List with \code{raw_dir}, \code{feat_dir}, \code{class_dir} paths.
 #' @param sample_ids Character vector of sample PIDs to process.
 #' @param matched Data frame of station-matched metadata.
+#' @param cached_diatom_status Optional data.frame from a previous
+#'   \code{resolve_diatom_status()} call (e.g. an earlier load in the same
+#'   session), so already-resolved classes skip the WoRMS lookup.
 #' @return A named list, or NULL if no H5 classifications were found.
 #' @keywords internal
-process_classifications <- function(config, dirs, sample_ids, matched) {
+process_classifications <- function(config, dirs, sample_ids, matched,
+                                    cached_diatom_status = NULL) {
   classifications <- read_h5_classifications(dirs$class_dir, sample_ids)
 
   if (nrow(classifications) == 0) return(NULL)
@@ -132,13 +136,37 @@ process_classifications <- function(config, dirs, sample_ids, matched) {
 
   taxa_lookup <- load_taxa_lookup()
 
-  # Non-biological classes are excluded from biovolume calculations
-  # by summarize_biovolumes() but kept in classifications for gallery display
-  biovolume_data <- summarize_biovolumes(
-    dirs$feat_dir, dirs$raw_dir, classifications,
-    taxa_lookup, non_bio,
-    pixels_per_micron = config$pixels_per_micron
+  # Read the immutable per-ROI biovolumes and per-sample volumes once and
+  # keep them for the rest of the session: later summary recomputations
+  # (corrections, sample exclusions, report generation) then run in memory
+  # instead of re-reading every feature CSV and .hdr file.
+  biovolume_cache <- tryCatch(
+    build_biovolume_cache(dirs$feat_dir, dirs$raw_dir, sample_ids),
+    error = function(e) {
+      warning("Failed to build biovolume cache (falling back to ",
+              "file-based summaries): ", conditionMessage(e), call. = FALSE)
+      NULL
+    }
   )
+
+  # Non-biological classes are excluded from biovolume calculations
+  # but kept in classifications for gallery display
+  if (!is.null(biovolume_cache) && nrow(biovolume_cache$roi_biovolumes) > 0) {
+    diatom_status <- resolve_diatom_status(unique(classifications$class_name),
+                                           cached_status = cached_diatom_status)
+    biovolume_data <- summarize_biovolumes_cached(
+      biovolume_cache, classifications, taxa_lookup, non_bio,
+      pixels_per_micron = config$pixels_per_micron,
+      diatom_status = diatom_status
+    )
+  } else {
+    diatom_status <- NULL
+    biovolume_data <- summarize_biovolumes(
+      dirs$feat_dir, dirs$raw_dir, classifications,
+      taxa_lookup, non_bio,
+      pixels_per_micron = config$pixels_per_micron
+    )
+  }
 
   station_summary <- aggregate_station_data(biovolume_data, matched)
 
@@ -150,7 +178,9 @@ process_classifications <- function(config, dirs, sample_ids, matched) {
     non_bio_classes = non_bio,
     taxa_lookup = taxa_lookup,
     station_summary = station_summary,
-    classifier_name = classifier_name
+    classifier_name = classifier_name,
+    biovolume_cache = biovolume_cache,
+    diatom_status = diatom_status
   )
 }
 
@@ -476,7 +506,8 @@ mod_data_loader_server <- function(id, config, rv) {
 
           # Step 3: Process classifications
           shiny::incProgress(0.25, detail = "Processing classifications...")
-          proc <- process_classifications(config, dirs, sample_ids, matched)
+          proc <- process_classifications(config, dirs, sample_ids, matched,
+                                          cached_diatom_status = rv$diatom_status)
 
           if (is.null(proc)) {
             resolved_class_path <- resolve_classification_path(
@@ -570,6 +601,8 @@ mod_data_loader_server <- function(id, config, rv) {
           rv$invalidated_classes      <- proc$non_bio_classes
           rv$taxa_lookup <- proc$taxa_lookup
           rv$classifier_name <- proc$classifier_name
+          rv$biovolume_cache <- proc$biovolume_cache
+          rv$diatom_status <- proc$diatom_status
           rv$excluded_samples <- character(0)
           reset_corrections_state(rv)
           rv$frontpage_baltic_mosaic <- NULL
