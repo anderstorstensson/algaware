@@ -443,3 +443,74 @@ test_that("create_mosaic handles 1-3 images without crashing", {
     expect_s3_class(result_default, "magick-image")
   }
 })
+
+# -- extract_pngs_cached ------------------------------------------------------
+
+write_fake_png <- function(dir, samp, roi) {
+  d <- file.path(dir, samp)
+  dir.create(d, recursive = TRUE, showWarnings = FALSE)
+  path <- file.path(d, paste0(samp, "_", sprintf("%05d", roi), ".png"))
+  magick::image_write(magick::image_blank(2, 2, "white"), path,
+                      format = "png")
+  path
+}
+
+test_that("extract_pngs_cached skips extraction when all PNGs exist", {
+  out <- withr::local_tempdir()
+  samp <- "D20250714T110535_IFCB134"
+  write_fake_png(out, samp, 1L)
+  write_fake_png(out, samp, 2L)
+
+  extract_cached <- algaware:::extract_pngs_cached
+  mockery::stub(extract_cached, "extract_pngs_with_fallback",
+                function(...) stop("should not extract"))
+  expect_true(extract_cached(
+    file.path("raw", paste0(samp, ".roi")), out, c(1L, 2L)
+  ))
+})
+
+test_that("extract_pngs_cached extracts only missing ROIs", {
+  out <- withr::local_tempdir()
+  samp <- "D20250714T110535_IFCB134"
+  write_fake_png(out, samp, 1L)
+
+  requested <- NULL
+  extract_cached <- algaware:::extract_pngs_cached
+  mockery::stub(extract_cached, "extract_pngs_with_fallback",
+                function(roi_file, out_folder, roi_numbers, ...) {
+                  requested <<- roi_numbers
+                  TRUE
+                })
+  expect_true(extract_cached(
+    file.path("raw", paste0(samp, ".roi")), out, c(1L, 2L, 3L)
+  ))
+  expect_equal(requested, c(2L, 3L))
+})
+
+test_that("extract_pngs_cached clears cache when scale settings change", {
+  out <- withr::local_tempdir()
+  samp <- "D20250714T110535_IFCB134"
+
+  extract_cached <- algaware:::extract_pngs_cached
+  mockery::stub(extract_cached, "extract_pngs_with_fallback",
+                function(roi_file, out_folder, roi_numbers, ...) TRUE)
+  # First call writes the settings marker
+  extract_cached(paste0(samp, ".roi"), out, 1L,
+                 scale_micron_factor = 1 / 2.77)
+  cached_png <- write_fake_png(out, samp, 1L)
+  # Same settings: PNG survives
+  extract_cached(paste0(samp, ".roi"), out, 1L,
+                 scale_micron_factor = 1 / 2.77)
+  expect_true(file.exists(cached_png))
+  # Changed settings: cache is discarded and re-extraction requested
+  requested <- NULL
+  mockery::stub(extract_cached, "extract_pngs_with_fallback",
+                function(roi_file, out_folder, roi_numbers, ...) {
+                  requested <<- roi_numbers
+                  TRUE
+                })
+  extract_cached(paste0(samp, ".roi"), out, 1L,
+                 scale_micron_factor = 1 / 3.4)
+  expect_false(file.exists(cached_png))
+  expect_equal(requested, 1L)
+})

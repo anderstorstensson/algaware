@@ -59,27 +59,76 @@ resolve_classification_path <- function(path) {
 #' Fetch metadata from the IFCB Dashboard
 #'
 #' Wraps \code{iRfcb::ifcb_download_dashboard_metadata()} and extracts
-#' available cruise numbers.
+#' available cruise numbers. When \code{cache_dir} is given, the download is
+#' cached there as an RDS file and subsequent fetches only download bins
+#' sampled on or after the newest cached day (see \code{R/metadata_cache.R}),
+#' which makes refetching a large archive a matter of seconds.
 #'
 #' @param dashboard_url Dashboard base URL.
 #' @param dataset_name Dataset name (e.g. "RV_Svea").
-#' @return A list with \code{metadata} (data.frame) and \code{cruise_numbers}
-#'   (character vector, possibly empty if no cruise column exists).
+#' @param cache_dir Optional local storage directory for the metadata cache.
+#'   NULL (default) disables caching and always downloads the full export.
+#' @param force_full If TRUE, ignore any cache and download the full export
+#'   (the cache is still refreshed afterwards).
+#' @return A list with \code{metadata} (data.frame), \code{cruise_numbers}
+#'   (character vector, possibly empty if no cruise column exists),
+#'   \code{incremental} (logical; TRUE when a cached fetch was updated
+#'   incrementally), and \code{n_new} (number of bins added or refreshed).
 #' @export
-fetch_dashboard_metadata <- function(dashboard_url, dataset_name = NULL) {
-  metadata <- iRfcb::ifcb_download_dashboard_metadata(
-    dashboard_url,
-    dataset_name = dataset_name,
-    quiet = TRUE
-  )
+fetch_dashboard_metadata <- function(dashboard_url, dataset_name = NULL,
+                                     cache_dir = NULL, force_full = FALSE) {
+  use_cache <- !is.null(cache_dir) && nzchar(cache_dir)
+  cache_file <- if (use_cache) metadata_cache_path(cache_dir) else NULL
+
+  cached <- NULL
+  if (use_cache && !force_full) {
+    cached <- load_metadata_cache(cache_file, dashboard_url, dataset_name)
+    # Incremental fetching needs a time column to define the window; fall
+    # back to a full download when the cached export has none.
+    if (!is.null(cached) && is.null(metadata_time_col(cached))) cached <- NULL
+  }
+
+  incremental <- FALSE
+  if (is.null(cached)) {
+    metadata <- iRfcb::ifcb_download_dashboard_metadata(
+      dashboard_url,
+      dataset_name = dataset_name,
+      quiet = TRUE
+    )
+    n_new <- nrow(metadata)
+  } else {
+    time_col <- metadata_time_col(cached)
+    last_date <- suppressWarnings(
+      max(as.Date(cached[[time_col]]), na.rm = TRUE)
+    )
+    if (is.finite(last_date)) {
+      fresh <- fetch_metadata_window(dashboard_url, dataset_name,
+                                     start_date = last_date)
+      metadata <- merge_metadata_increment(cached, fresh, last_date)
+      n_new <- nrow(fresh)
+      incremental <- TRUE
+    } else {
+      metadata <- iRfcb::ifcb_download_dashboard_metadata(
+        dashboard_url,
+        dataset_name = dataset_name,
+        quiet = TRUE
+      )
+      n_new <- nrow(metadata)
+    }
+  }
+
+  if (use_cache) {
+    save_metadata_cache(cache_file, dashboard_url, dataset_name, metadata)
+  }
 
   cruise_numbers <- character(0)
   if ("cruise" %in% names(metadata)) {
-    cruise_numbers <- unique(metadata$cruise)
+    cruise_numbers <- unique(as.character(metadata$cruise))
     cruise_numbers <- cruise_numbers[!is.na(cruise_numbers) & nzchar(cruise_numbers)]
   }
 
-  list(metadata = metadata, cruise_numbers = cruise_numbers)
+  list(metadata = metadata, cruise_numbers = cruise_numbers,
+       incremental = incremental, n_new = n_new)
 }
 
 #' Filter metadata by cruise number or date range
@@ -175,10 +224,30 @@ fetch_image_counts <- function(dashboard_url, dataset_name,
   })
 }
 
+#' Download tuning parameters
+#'
+#' \code{iRfcb::ifcb_download_dashboard_data()} downloads in parallel chunks
+#' and sleeps unconditionally after every chunk (its defaults: 5 files per
+#' chunk, 2 s sleep). With the 4 small files a sample needs, that idle time
+#' dominates a first-time cruise load, so algaware defaults to larger chunks
+#' and a much shorter politeness delay. Override for slow or third-party
+#' dashboards via \code{options(algaware.download_parallel = ,
+#' algaware.download_sleep = )}.
+#'
+#' @return A list with \code{parallel} and \code{sleep} values.
+#' @keywords internal
+download_tuning <- function() {
+  list(
+    parallel = getOption("algaware.download_parallel", 10),
+    sleep = getOption("algaware.download_sleep", 0.2)
+  )
+}
+
 #' Download raw IFCB files for selected bins
 #'
 #' Downloads .roi, .adc, and .hdr files to local storage. Skips files that
-#' already exist.
+#' already exist. Chunk size and inter-chunk delay are tunable via
+#' \code{options()} (see \code{download_tuning()}).
 #'
 #' @param dashboard_url Dashboard base URL.
 #' @param sample_ids Character vector of sample PIDs.
@@ -218,12 +287,15 @@ download_raw_data <- function(dashboard_url, sample_ids, dest_dir,
     progress_callback(0, length(needed), "Downloading raw data...")
   }
 
+  tuning <- download_tuning()
   ok <- tryCatch({
     iRfcb::ifcb_download_dashboard_data(
       dashboard_url = dashboard_url,
       samples = needed,
       file_types = c("roi", "adc", "hdr"),
       dest_dir = dest_dir,
+      parallel_downloads = tuning$parallel,
+      sleep_time = tuning$sleep,
       quiet = TRUE
     )
     TRUE
@@ -278,12 +350,15 @@ download_features <- function(dashboard_url, sample_ids, dest_dir,
     progress_callback(0, length(needed), "Downloading features...")
   }
 
+  tuning <- download_tuning()
   tryCatch(
     iRfcb::ifcb_download_dashboard_data(
       dashboard_url = dashboard_url,
       samples = needed,
       file_types = "features",
       dest_dir = dest_dir,
+      parallel_downloads = tuning$parallel,
+      sleep_time = tuning$sleep,
       quiet = TRUE
     ),
     error = function(e) {

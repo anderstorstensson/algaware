@@ -26,5 +26,6 @@ Invisible NULL.
 }
 \description{
 Downloads .roi, .adc, and .hdr files to local storage. Skips files that
-already exist.
+already exist. Chunk size and inter-chunk delay are tunable via
+\code{options()} (see \code{download_tuning()}).
 }

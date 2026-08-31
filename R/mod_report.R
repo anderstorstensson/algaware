@@ -186,12 +186,11 @@ mod_report_server <- function(id, rv, config, phyto_groups_reactive = NULL) {
           taxa_lookup <- merge_custom_taxa(rv$taxa_lookup, rv$custom_classes)
           storage <- config$local_storage_path
 
-          biovolume_data <- summarize_biovolumes(
-            file.path(storage, "features"),
-            file.path(storage, "raw"),
-            rv$classifications, taxa_lookup, non_bio,
-            pixels_per_micron = config$pixels_per_micron,
-            custom_classes = rv$custom_classes
+          # Recomputes summaries in memory from the per-ROI cache built at
+          # load time; only falls back to re-reading feature/.hdr files when
+          # the cache is unavailable.
+          biovolume_data <- recompute_biovolume_data(
+            rv, config, taxa_lookup, non_bio
           )
 
           station_summary <- aggregate_station_data(

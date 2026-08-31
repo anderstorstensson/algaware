@@ -555,6 +555,58 @@ extract_pngs_with_fallback <- function(roi_file, out_folder, roi_numbers,
   run_extract(with_scale_bar = FALSE)
 }
 
+#' Extract IFCB PNGs, skipping ROIs already extracted
+#'
+#' Extraction output is deterministic per (sample, ROI, scale settings), and
+#' the extraction folders live in \code{tempdir()}, which persists for the R
+#' process. Skipping ROIs whose PNG already exists makes repeated report or
+#' mosaic generation in the same session near-instant. A marker file records
+#' the scale-bar settings; when they change (e.g. the pixels-per-micron
+#' setting was edited), the cached PNGs are discarded and re-extracted.
+#'
+#' @param roi_file Path to a .roi file.
+#' @param out_folder Output directory for extracted PNGs.
+#' @param roi_numbers Integer ROI numbers to extract.
+#' @param scale_bar_um Scale bar length in microns. Default 5.
+#' @param scale_micron_factor Optional microns-per-pixel factor.
+#' @return TRUE if all requested PNGs were already cached or an extraction
+#'   attempt completed without error, FALSE otherwise.
+#' @keywords internal
+extract_pngs_cached <- function(roi_file, out_folder, roi_numbers,
+                                scale_bar_um = 5,
+                                scale_micron_factor = NULL) {
+  samp <- tools::file_path_sans_ext(basename(roi_file))
+  expected <- file.path(out_folder, samp,
+                        paste0(samp, "_", sprintf("%05d", roi_numbers),
+                               ".png"))
+
+  marker <- file.path(out_folder, ".scale_settings")
+  current <- paste(scale_bar_um,
+                   if (is.null(scale_micron_factor)) "none"
+                   else format(scale_micron_factor, digits = 15))
+  previous <- if (file.exists(marker)) {
+    tryCatch(readLines(marker, warn = FALSE)[1], error = function(e) "")
+  } else {
+    NA_character_
+  }
+  if (!is.na(previous) && !identical(previous, current)) {
+    unlink(list.dirs(out_folder, recursive = FALSE), recursive = TRUE)
+  }
+  dir.create(out_folder, recursive = TRUE, showWarnings = FALSE)
+  if (!identical(previous, current)) writeLines(current, marker)
+
+  have <- vapply(expected, is_valid_extracted_png, logical(1))
+  if (all(have)) return(TRUE)
+
+  extract_pngs_with_fallback(
+    roi_file = roi_file,
+    out_folder = out_folder,
+    roi_numbers = roi_numbers[!have],
+    scale_bar_um = scale_bar_um,
+    scale_micron_factor = scale_micron_factor
+  )
+}
+
 #' Check whether an extracted PNG is readable
 #'
 #' @param path Path to a PNG file.
@@ -616,7 +668,7 @@ extract_random_taxon_image <- function(taxon_name, classifications, taxa_lookup,
                            recursive = TRUE, full.names = TRUE)
     if (length(roi_file) == 0) next
 
-    ok <- extract_pngs_with_fallback(
+    ok <- extract_pngs_cached(
       roi_file = roi_file[1],
       out_folder = out_folder,
       roi_numbers = roi_num,
@@ -708,7 +760,7 @@ create_region_mosaics <- function(wide_summary, classifications, sample_ids,
 
       samp_rois <- taxon_rois$roi_number[taxon_rois$sample_name == samp]
 
-      ok <- extract_pngs_with_fallback(
+      ok <- extract_pngs_cached(
         roi_file = roi_file[1],
         out_folder = out_folder,
         roi_numbers = samp_rois,

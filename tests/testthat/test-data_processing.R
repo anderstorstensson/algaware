@@ -49,6 +49,54 @@ test_that("identify_diatom_classes finds known diatoms", {
   expect_false("Dinophysis_sp" %in% result)
 })
 
+test_that("identify_diatom_classes matches case-insensitively and covers
+           genera previously reliant on the WoRMS lookup", {
+  taxa_lookup <- data.frame(
+    clean_names = c("Rhizosolenia_setigera", "Rhizosolenia_Pseudosolenia",
+                    "Pseudosolenia_calcar-avis", "Asterionellopsis_glacialis",
+                    "Attheya_spp", "Bacillaria_paxillifera",
+                    "Bacteriastrum_hyalinum", "Cyclotella_spp",
+                    "Detonula_confervacea", "Entomoneis-like",
+                    "Gyrosigma_Pleurosigma", "Lithodesmium-like",
+                    "Phaeodactylum_tricornutus", "Stephanopyxis-like",
+                    "Mesodinium_rubrum", "Tripos_furca"),
+    stringsAsFactors = FALSE
+  )
+
+  result <- algaware:::identify_diatom_classes(taxa_lookup)
+  non_diatoms <- c("Mesodinium_rubrum", "Tripos_furca")
+  expect_setequal(result, setdiff(taxa_lookup$clean_names, non_diatoms))
+})
+
+test_that("identify_diatom_classes prefers the is_diatom column, with the
+           genus pattern list as fallback for unflagged rows", {
+  taxa_lookup <- data.frame(
+    clean_names = c("Curated_diatom",       # TRUE despite no pattern match
+                    "Actinocyclus_spp",     # FALSE overrides pattern match
+                    "Skeletonema_marinoi",  # NA -> pattern fallback
+                    "Dinophysis_sp"),       # NA -> no pattern match
+    is_diatom = c(TRUE, FALSE, NA, NA),
+    stringsAsFactors = FALSE
+  )
+
+  result <- algaware:::identify_diatom_classes(taxa_lookup)
+  expect_setequal(result, c("Curated_diatom", "Skeletonema_marinoi"))
+})
+
+test_that("bundled taxa lookup carries a complete is_diatom column", {
+  lookup <- load_taxa_lookup()
+  expect_true(is.logical(lookup$is_diatom))
+  expect_false(anyNA(lookup$is_diatom))
+  expect_true(all(
+    c("Rhizosolenia_spp", "Skeletonema_spp", "Actinocyclus_spp") %in%
+      lookup$clean_names[lookup$is_diatom]
+  ))
+  expect_false(any(
+    c("Mesodinium_rubrum", "Debris", "unclassified") %in%
+      lookup$clean_names[lookup$is_diatom]
+  ))
+})
+
 test_that("create_wide_summary handles empty data", {
   station_summary <- data.frame(
     COAST = character(0),

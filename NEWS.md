@@ -8,6 +8,59 @@
   bright backgrounds for instruments with a bright top-edge artifact (e.g.
   the west coast mosaics). A fractional median could also silently replace
   the fill with the bright `#F0F0F0` fallback; medians are now rounded.
+- The heatmap's phytoplankton-group facet column was a *named* factor (names
+  leaked from the group lookup), which Shiny serialized into the plot
+  coordmap and jsonlite flagged with one "asJSON(keep_vec_names=TRUE)"
+  deprecation message per facet panel on every render of the Plots tab.
+  The names are now stripped; the console noise is gone and the coordmap
+  stays a JSON object under future jsonlite versions.
+- The per-class diatom decision (which selects the diatom vs non-diatom
+  carbon conversion formula) is now driven by a curated `is_diatom` column
+  in the bundled taxa lookup, seeded once from WoRMS and cross-checked
+  against the local genus list (`data-raw/seed_taxa_lookup_is_diatom.R`).
+  Previously the decision relied on a live WoRMS lookup at load time with a
+  hardcoded genus pattern list as fallback, so a WoRMS outage silently
+  switched uncovered diatom classes to the non-diatom formula (roughly 3x
+  higher carbon for typical diatom cell volumes). WoRMS is now only
+  consulted for classes missing from the lookup, so carbon estimates for
+  all bundled classes are deterministic and fully offline. Custom classes
+  keep their "Is diatom" checkbox and are carried through
+  `merge_custom_taxa()`.
+- Fixed the local diatom genus fallback list: matching is now
+  case-insensitive (the lowercase `"rhizosolenia"` pattern previously
+  matched nothing, leaving all *Rhizosolenia* classes dependent on WoRMS)
+  and missing genera were added (*Asterionellopsis*, *Attheya*,
+  *Bacillaria*, *Bacteriastrum*, *Cyclotella*, *Detonula*, *Entomoneis*,
+  *Gyrosigma*, *Pleurosigma*, *Lithodesmium*, *Phaeodactylum*,
+  *Pseudosolenia*, *Stephanopyxis*). The list now only serves as a safety
+  net for classes without an `is_diatom` flag.
+
+## Performance
+
+- Summary recomputation (report generation, sample exclusions, and the
+  stale-summary refresh) now runs from an in-memory per-ROI biovolume cache
+  built once when the data is loaded, instead of re-reading every feature
+  CSV and `.hdr` file from disk each time. Per-class WoRMS diatom lookups
+  are cached per session as well, so recomputing summaries after
+  corrections is near-instant and works offline. The file-based path is
+  kept as an automatic fallback when no cache is available.
+- Fetching metadata is now incremental: the dashboard export is cached in
+  local storage and subsequent fetches download only bins sampled on or
+  after the newest cached day. A "Clear Metadata Cache" button in Settings
+  makes the next fetch download the complete export again (use it when
+  older bins were edited on the dashboard, e.g. skip flags or cruise
+  numbers). The cache also resets automatically when the dashboard URL or
+  dataset changes.
+- Station descriptions in the report are now generated with parallel LLM
+  requests on OpenAI, collapsing one round trip per station into roughly
+  a single request's latency. Gemini stays sequential because of its
+  free-tier rate limit.
+- Maps reuse a session-cached coastline polygon cropped to Swedish waters,
+  and mosaic/report image extraction skips ROI PNGs already extracted
+  earlier in the session, so repeated report generation is much faster.
+- Raw data and feature downloads use larger parallel chunks with a much
+  shorter inter-chunk delay (previously ~2 s of idle time per 5 files),
+  tunable via `options(algaware.download_parallel, algaware.download_sleep)`.
 
 # algaware 0.3.1
 

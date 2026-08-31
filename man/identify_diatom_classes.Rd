@@ -7,7 +7,8 @@
 identify_diatom_classes(taxa_lookup, custom_classes = NULL)
 }
 \arguments{
-\item{taxa_lookup}{A data.frame with \code{clean_names} column.}
+\item{taxa_lookup}{A data.frame with a \code{clean_names} column and
+optionally a logical \code{is_diatom} column.}
 }
 \value{
 Character vector of class names likely to be diatoms.
@@ -15,7 +16,10 @@ Character vector of class names likely to be diatoms.
 \description{
 Diatoms require a different biovolume formula than other phytoplankton
 (they have silica frustules that affect the carbon:biovolume ratio).
-This function matches class names against known diatom genera so that
-\code{iRfcb::ifcb_summarize_biovolumes()} can apply the correct formula.
+The primary source is the curated \code{is_diatom} column of the taxa
+lookup (seeded once from WoRMS); rows without a value -- and lookups
+predating the column -- fall back to matching class names against known
+diatom genera. The result feeds the \code{diatom_include} argument of
+\code{iRfcb::ifcb_summarize_biovolumes()} and the cached summary path.
 }
 \keyword{internal}

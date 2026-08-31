@@ -1,9 +1,38 @@
+# Session-level cache for the cropped basemap polygon. Loading ne_countries
+# and rendering the full world polygon happened once per map, on every plot
+# in the app and every figure in the report; the cropped coastline is
+# immutable, so compute it once per R process.
+.map_cache <- new.env(parent = emptyenv())
+
+#' Get the coastline polygon for Swedish waters
+#'
+#' Loads the Natural Earth countries layer once per session and crops it to
+#' a bounding box slightly larger than the plot extent, so geom_sf renders a
+#' handful of coastline polygons instead of the whole world on every map.
+#' Cropping failures fall back to the uncropped layer.
+#'
+#' @return An sf object with the cropped coastline.
+#' @keywords internal
+sweden_coastline <- function() {
+  if (is.null(.map_cache$coastline)) {
+    world <- rnaturalearth::ne_countries(scale = "medium", returnclass = "sf")
+    .map_cache$coastline <- tryCatch(
+      suppressWarnings(sf::st_crop(
+        sf::st_make_valid(world),
+        xmin = 4, ymin = 52, xmax = 28, ymax = 62
+      )),
+      error = function(e) world
+    )
+  }
+  .map_cache$coastline
+}
+
 #' Create a base map of Swedish waters
 #'
 #' @return A ggplot object with coastline, coordinate system, and theme.
 #' @keywords internal
 base_sweden_map <- function() {
-  world <- rnaturalearth::ne_countries(scale = "medium", returnclass = "sf")
+  world <- sweden_coastline()
   ggplot2::ggplot() +
     ggplot2::geom_sf(data = world, fill = "gray95", color = "gray70") +
     ggplot2::coord_sf(xlim = c(10, 22), ylim = c(54, 60), expand = FALSE) +
