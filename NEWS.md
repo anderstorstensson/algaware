@@ -1,5 +1,7 @@
 # algaware (development version)
 
+## Bug fixes
+
 - Backfilled `"unclassified"` rows now carry the annotator name configured
   in the app instead of the hardcoded `"algaware"`. Unreviewed rows remain
   identifiable by `is_manual = 0`. Rows already stored with annotator
