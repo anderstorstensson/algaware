@@ -162,17 +162,19 @@ save_annotations_db <- function(db_path, annotations, annotator = "",
     # after the upsert above: INSERT OR IGNORE only adds rows whose
     # (sample_name, roi_number) is not yet in the table, so the ROIs just
     # annotated -- and any annotation from an earlier save or from
-    # ClassiPyR -- are left untouched. is_manual = 0 marks the rows as not
-    # yet reviewed (ClassiPyR's fill_unclassified_db() convention).
+    # ClassiPyR -- are left untouched. is_manual = 0 alone marks the rows
+    # as not yet reviewed (ClassiPyR's fill_unclassified_db() convention);
+    # the annotator column carries the configured name like manual rows do.
     if (!is.null(backfill_rois) && nrow(backfill_rois) > 0) {
       bf_stmt <- DBI::dbSendStatement(con, "
         INSERT OR IGNORE INTO annotations
           (sample_name, roi_number, class_name, annotator, timestamp, is_manual)
-        VALUES (?, ?, 'unclassified', 'algaware', datetime('now'), 0)
+        VALUES (?, ?, 'unclassified', ?, datetime('now'), 0)
       ")
       DBI::dbBind(bf_stmt, params = list(
         backfill_rois$sample_name,
-        as.integer(backfill_rois$roi_number)
+        as.integer(backfill_rois$roi_number),
+        rep(annotator, nrow(backfill_rois))
       ))
       DBI::dbClearResult(bf_stmt)
     }

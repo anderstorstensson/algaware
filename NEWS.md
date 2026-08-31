@@ -2,6 +2,10 @@
 
 ## Bug fixes
 
+- Backfilled `"unclassified"` rows now carry the annotator name configured
+  in the app instead of the hardcoded `"algaware"`. Unreviewed rows remain
+  identifiable by `is_manual = 0`. Rows already stored with annotator
+  `"algaware"` are left unchanged.
 - The grey background fill of report mosaics now matches the actual image
   backdrop. A channel-indexing bug made the fill color the median of each
   image's top pixel rows instead of the whole-image median, producing too
