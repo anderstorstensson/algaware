@@ -116,6 +116,32 @@ test_that("merge_custom_taxa does not duplicate existing classes", {
   expect_equal(result$name, "A")
 })
 
+test_that("merge_custom_taxa carries the is_diatom flag through", {
+  taxa <- data.frame(
+    clean_names = "Existing",
+    name = "Existing sp.",
+    AphiaID = 100L,
+    HAB = FALSE,
+    italic = TRUE,
+    is_diatom = TRUE,
+    stringsAsFactors = FALSE
+  )
+  custom <- data.frame(
+    clean_names = c("CustomDiatom", "CustomOther"),
+    name = c("Custom diatom", "Custom other"),
+    AphiaID = c(998L, 999L),
+    HAB = FALSE,
+    italic = TRUE,
+    is_diatom = c(TRUE, FALSE),
+    stringsAsFactors = FALSE
+  )
+
+  result <- merge_custom_taxa(taxa, custom)
+  expect_true(result$is_diatom[result$clean_names == "Existing"])
+  expect_true(result$is_diatom[result$clean_names == "CustomDiatom"])
+  expect_false(result$is_diatom[result$clean_names == "CustomOther"])
+})
+
 test_that("format_taxon_labels italicizes and appends sflag", {
   taxa <- data.frame(
     name = "Pseudo-nitzschia seriata",

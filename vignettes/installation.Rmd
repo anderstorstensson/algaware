@@ -7,7 +7,7 @@ vignette: >
   %\VignetteEncoding{UTF-8}
 ---
 
-```{r setup, include=FALSE}
+```{r setup, include=FALSE, purl=FALSE}
 knitr::opts_chunk$set(echo = TRUE, eval = FALSE)
 ```
 
@@ -33,7 +33,7 @@ You only need to do this once.
 Open RStudio and paste the following into the **Console** panel (bottom-left),
 then press Enter:
 
-```{r install}
+```{r install, purl=FALSE}
 install.packages("remotes")
 remotes::install_github("nodc-sweden/ifcb-algaware",
                         dependencies = TRUE,
@@ -54,7 +54,7 @@ alongside the main package. Installation may take a few minutes the first time.
 
 ## 3. Launch the application
 
-```{r launch}
+```{r launch, purl=FALSE}
 library(algaware)
 launch_app()
 ```
@@ -116,7 +116,7 @@ provider and the `httr2` package (installed with `dependencies = TRUE`).
 
 Open your `.Renviron` file by running:
 
-```{r renviron}
+```{r renviron, purl=FALSE}
 usethis::edit_r_environ()
 ```
 

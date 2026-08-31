@@ -103,8 +103,14 @@ create_heatmap <- function(wide_summary, taxa_lookup = NULL, title = "",
     taxa <- unique(long_data$scientific_name)
     group_of <- stats::setNames(heatmap_group_of(taxa, phyto_groups), taxa)
     group_levels <- heatmap_group_levels(group_of)
-    long_data$phyto_group <- factor(group_of[long_data$scientific_name],
-                                    levels = group_levels)
+    # unname(): the named lookup subset would otherwise put a *named* factor
+    # into the facet column, which Shiny serializes into the plot coordmap --
+    # jsonlite then emits one "asJSON(keep_vec_names=TRUE)" deprecation
+    # message per facet panel on every render.
+    long_data$phyto_group <- factor(
+      unname(group_of[long_data$scientific_name]),
+      levels = group_levels
+    )
     # rev(): factor levels run bottom-to-top on a discrete y-axis, so A->Z
     # order reads top-to-bottom within each panel.
     species_order <- rev(order_taxa_by_group(taxa, phyto_groups))

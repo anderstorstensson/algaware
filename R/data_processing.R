@@ -38,6 +38,25 @@ summarize_biovolumes <- function(feature_folder, hdr_folder, classifications,
     verbose = FALSE
   )
 
+  finalize_biovolume_data(biovolume_data, taxa_lookup, non_bio_classes)
+}
+
+#' Join taxonomy onto biovolume data and drop non-biological classes
+#'
+#' Shared tail of \code{summarize_biovolumes()} and
+#' \code{summarize_biovolumes_cached()}: joins the taxa lookup, fills missing
+#' names/flags, and removes non-biological classes.
+#'
+#' @param biovolume_data Per-sample, per-class biovolume data.frame with a
+#'   \code{class} column.
+#' @param taxa_lookup A data.frame with columns \code{clean_names},
+#'   \code{name}, \code{AphiaID} (and optionally \code{sflag}).
+#' @param non_bio_classes Character vector of non-biological class names to
+#'   exclude.
+#' @return The joined and filtered data.frame.
+#' @keywords internal
+finalize_biovolume_data <- function(biovolume_data, taxa_lookup,
+                                    non_bio_classes = character(0)) {
   # Join with taxonomy (include sflag if present)
   lookup_cols <- intersect(c("clean_names", "name", "sflag", "AphiaID"),
                            names(taxa_lookup))
@@ -49,8 +68,11 @@ summarize_biovolumes <- function(feature_folder, hdr_folder, classifications,
     all.x = TRUE
   )
 
-  # Ensure sflag column exists even if not in taxa_lookup
-  if (!"sflag" %in% names(biovolume_data)) biovolume_data$sflag <- ""
+  # Ensure sflag column exists even if not in taxa_lookup (rep() keeps the
+  # assignment valid for zero-row inputs, e.g. an empty cached summary)
+  if (!"sflag" %in% names(biovolume_data)) {
+    biovolume_data$sflag <- rep("", nrow(biovolume_data))
+  }
 
   # Fall back to class name when taxa lookup has no entry or a blank name.
   # This prevents NA/empty names from merging distinct classes in aggregation.
@@ -76,27 +98,47 @@ summarize_biovolumes <- function(feature_folder, hdr_folder, classifications,
 #'
 #' Diatoms require a different biovolume formula than other phytoplankton
 #' (they have silica frustules that affect the carbon:biovolume ratio).
-#' This function matches class names against known diatom genera so that
-#' \code{iRfcb::ifcb_summarize_biovolumes()} can apply the correct formula.
+#' The primary source is the curated \code{is_diatom} column of the taxa
+#' lookup (seeded once from WoRMS); rows without a value -- and lookups
+#' predating the column -- fall back to matching class names against known
+#' diatom genera. The result feeds the \code{diatom_include} argument of
+#' \code{iRfcb::ifcb_summarize_biovolumes()} and the cached summary path.
 #'
-#' @param taxa_lookup A data.frame with \code{clean_names} column.
+#' @param taxa_lookup A data.frame with a \code{clean_names} column and
+#'   optionally a logical \code{is_diatom} column.
 #' @return Character vector of class names likely to be diatoms.
 #' @keywords internal
 identify_diatom_classes <- function(taxa_lookup, custom_classes = NULL) {
-  # Genus-level patterns for diatom taxa (Bacillariophyta)
+  # Genus-level patterns for diatom taxa (Bacillariophyta), matched
+  # case-insensitively as substrings (so "Asterionell" catches both
+  # Asterionella and Asterionellopsis)
   diatom_patterns <- c(
-    "Navicula", "Actinocyclus", "Achnanthes", "Proboscia", "rhizosolenia",
-    "Chaetocero", "centrales", "Centrales", "Coscinodiscus", "Thalassiosira",
+    "Navicula", "Actinocyclus", "Achnanthes", "Proboscia", "Rhizosolenia",
+    "Chaetocero", "Centrales", "Coscinodiscus", "Thalassiosira",
     "Skeletonema", "Pseudo-nitzschia", "Nitzschia", "Ditylum", "Guinardia",
     "Dactyliosolen", "Lauderia", "Leptocylindrus", "Eucampia", "Corethron",
-    "Melosira", "Paralia", "Fragilaria", "Asterionella", "Cerataulina",
+    "Melosira", "Paralia", "Fragilaria", "Asterionell", "Cerataulina",
     "Pauliella", "Pennales", "Odontella", "Porosira", "Stellarima",
     "Sundstroemia", "Thalassionema", "Trieres", "Diatoma", "Licmophora",
-    "Striatella", "Cocconeis", "Cylindrotheca"
+    "Striatella", "Cocconeis", "Cylindrotheca", "Attheya", "Bacillaria",
+    "Bacteriastrum", "Cyclotella", "Detonula", "Entomoneis", "Gyrosigma",
+    "Pleurosigma", "Lithodesmium", "Phaeodactylum", "Pseudosolenia",
+    "Stephanopyxis"
   )
-
   pattern <- paste(diatom_patterns, collapse = "|")
-  diatoms <- taxa_lookup$clean_names[grepl(pattern, taxa_lookup$clean_names)]
+
+  if ("is_diatom" %in% names(taxa_lookup)) {
+    flag <- as.logical(taxa_lookup$is_diatom)
+    diatoms <- taxa_lookup$clean_names[!is.na(flag) & flag]
+    # Rows without an explicit flag (e.g. newly added lookup entries) fall
+    # back to the genus pattern list
+    unflagged <- taxa_lookup$clean_names[is.na(flag)]
+    diatoms <- c(diatoms, unflagged[grepl(pattern, unflagged,
+                                          ignore.case = TRUE)])
+  } else {
+    diatoms <- taxa_lookup$clean_names[grepl(pattern, taxa_lookup$clean_names,
+                                             ignore.case = TRUE)]
+  }
 
   # Include custom classes flagged as diatoms
   if (!is.null(custom_classes) && nrow(custom_classes) > 0 &&

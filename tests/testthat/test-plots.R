@@ -242,6 +242,25 @@ test_that("create_heatmap orders taxa by group when phyto_groups given", {
   expect_equal(y_levels, c("Aphanizomenon", "Dinophysis", "Skeletonema"))
 })
 
+test_that("create_heatmap facet column carries no names", {
+  # A *named* phyto_group factor ends up in Shiny's plot coordmap, where
+  # jsonlite emits an asJSON(keep_vec_names) deprecation message per facet
+  # panel on every render (and would serialize wrongly in future jsonlite).
+  wide <- data.frame(
+    scientific_name = c("Dinophysis", "Skeletonema"),
+    `STN1_2022-01-01` = c(100, 1),
+    check.names = FALSE,
+    stringsAsFactors = FALSE
+  )
+  groups <- data.frame(
+    name = c("Dinophysis", "Skeletonema"),
+    phyto_group = c("Dinoflagellates", "Diatoms"),
+    stringsAsFactors = FALSE
+  )
+  p <- create_heatmap(wide, phyto_groups = groups, title = "Test")
+  expect_null(names(p$data$phyto_group))
+})
+
 test_that("create_heatmap keeps biovolume ordering without phyto_groups", {
   wide <- data.frame(
     scientific_name = c("Low", "High"),
@@ -367,4 +386,16 @@ test_that("create_heatmap renders taxon names containing angle brackets", {
   tmp <- withr::local_tempfile(fileext = ".png")
   expect_no_error(ggplot2::ggsave(tmp, p, width = 5, height = 4, dpi = 50))
   expect_true(file.exists(tmp))
+})
+
+# -- sweden_coastline caching -------------------------------------------------
+
+test_that("sweden_coastline returns a cropped sf layer and caches it", {
+  first <- algaware:::sweden_coastline()
+  expect_s3_class(first, "sf")
+  bb <- sf::st_bbox(first)
+  expect_gte(bb["xmin"], 4 - 1e-6)
+  expect_lte(bb["xmax"], 28 + 1e-6)
+  # Second call returns the cached object
+  expect_identical(first, algaware:::sweden_coastline())
 })
