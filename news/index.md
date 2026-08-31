@@ -4,6 +4,13 @@
 
 ### Bug fixes
 
+- The grey background fill of report mosaics now matches the actual
+  image backdrop. A channel-indexing bug made the fill color the median
+  of each image’s top pixel rows instead of the whole-image median,
+  producing too bright backgrounds for instruments with a bright
+  top-edge artifact (e.g. the west coast mosaics). A fractional median
+  could also silently replace the fill with the bright `#F0F0F0`
+  fallback; medians are now rounded.
 - The heatmap’s phytoplankton-group facet column was a *named* factor
   (names leaked from the group lookup), which Shiny serialized into the
   plot coordmap and jsonlite flagged with one
