@@ -84,6 +84,7 @@ reference:
     desc: Fetch data from IFCB Dashboard
     contents:
       - fetch_dashboard_metadata
+      - clear_metadata_cache
       - fetch_image_counts
       - filter_metadata
       - download_raw_data
@@ -94,6 +95,10 @@ reference:
     contents:
       - aggregate_station_data
       - summarize_biovolumes
+      - build_biovolume_cache
+      - summarize_biovolumes_cached
+      - recompute_biovolume_data
+      - resolve_diatom_status
       - create_wide_summary
       - parse_non_bio_classes
       - compute_unclassified_fractions
