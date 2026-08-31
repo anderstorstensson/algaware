@@ -249,6 +249,58 @@ test_that("resolve_diatom_status skips lookup when everything is cached", {
   expect_equal(nrow(result), 1)
 })
 
+test_that("resolve_diatom_status resolves flagged lookup classes offline", {
+  mockery::stub(resolve_diatom_status, "worms_diatom_lookup",
+                function(classes) stop("should not be called"))
+  taxa_lookup <- data.frame(
+    clean_names = c("Diatom_class", "Other_class"),
+    is_diatom = c(TRUE, FALSE),
+    stringsAsFactors = FALSE
+  )
+  expect_silent(
+    result <- resolve_diatom_status(c("Diatom_class", "Other_class"),
+                                    taxa_lookup = taxa_lookup)
+  )
+  expect_true(result$worms_diatom[result$class == "Diatom_class"])
+  expect_false(result$worms_diatom[result$class == "Other_class"])
+})
+
+test_that("resolve_diatom_status falls back to WoRMS for unflagged classes", {
+  lookup_calls <- list()
+  mockery::stub(resolve_diatom_status, "worms_diatom_lookup",
+                function(classes) {
+                  lookup_calls[[length(lookup_calls) + 1]] <<- classes
+                  rep(TRUE, length(classes))
+                })
+  # NA flag and a class absent from the lookup both need WoRMS
+  taxa_lookup <- data.frame(
+    clean_names = c("Flagged_class", "Unflagged_class"),
+    is_diatom = c(FALSE, NA),
+    stringsAsFactors = FALSE
+  )
+  result <- resolve_diatom_status(
+    c("Flagged_class", "Unflagged_class", "Unknown_class"),
+    taxa_lookup = taxa_lookup
+  )
+  expect_equal(sort(lookup_calls[[1]]), c("Unflagged_class", "Unknown_class"))
+  expect_false(result$worms_diatom[result$class == "Flagged_class"])
+  expect_true(result$worms_diatom[result$class == "Unflagged_class"])
+  expect_true(result$worms_diatom[result$class == "Unknown_class"])
+})
+
+test_that("resolve_diatom_status prefers the lookup flag over cached status", {
+  mockery::stub(resolve_diatom_status, "worms_diatom_lookup",
+                function(classes) stop("should not be called"))
+  taxa_lookup <- data.frame(clean_names = "A", is_diatom = TRUE,
+                            stringsAsFactors = FALSE)
+  cached <- data.frame(class = "A", worms_diatom = FALSE,
+                       stringsAsFactors = FALSE)
+  result <- resolve_diatom_status("A", cached_status = cached,
+                                  taxa_lookup = taxa_lookup)
+  expect_equal(nrow(result), 1)
+  expect_true(result$worms_diatom)
+})
+
 test_that("worms_diatom_lookup returns NA on lookup failure", {
   mockery::stub(worms_diatom_lookup, "iRfcb::ifcb_is_diatom",
                 function(...) stop("offline"))

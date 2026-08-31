@@ -10,8 +10,10 @@
 #' instead of a full re-read of the storage folder.
 #'
 #' The per-class diatom decision (which selects the carbon conversion formula)
-#' involves a WoRMS API lookup; it is cached per class in `rv$diatom_status`
-#' so only classes not seen before in the session trigger a lookup.
+#' comes from the curated `is_diatom` column of the taxa lookup; classes not
+#' covered there fall back to a WoRMS API lookup, cached per class in
+#' `rv$diatom_status` so only classes not seen before in the session trigger
+#' a network request.
 #'
 #' @name biovolume-cache
 #' @keywords internal
@@ -142,8 +144,9 @@ worms_diatom_lookup <- function(class_names) {
     as.logical(iRfcb::ifcb_is_diatom(class_names, verbose = FALSE)),
     error = function(e) {
       warning("WoRMS diatom lookup failed (", conditionMessage(e),
-              "); affected classes are treated as non-diatoms unless ",
-              "matched by the local diatom genus list.", call. = FALSE)
+              "); affected classes (those without an is_diatom flag in the ",
+              "taxa lookup) are treated as non-diatoms unless matched by ",
+              "the local diatom genus list.", call. = FALSE)
       rep(NA, length(class_names))
     }
   )
@@ -151,26 +154,43 @@ worms_diatom_lookup <- function(class_names) {
 
 #' Resolve per-class diatom status, reusing cached lookups
 #'
-#' Combines a previously resolved status table with WoRMS lookups for classes
-#' not seen before. Classes whose earlier lookup failed (NA) are retried.
-#' The local diatom genus list (\code{identify_diatom_classes()}) is NOT
-#' applied here -- it can change within a session as custom classes are added,
-#' so it is applied at summary time instead.
+#' Resolution order per class: the curated \code{is_diatom} column of the
+#' taxa lookup (no network), then a previously resolved status table, then a
+#' WoRMS lookup for classes neither source covers (e.g. classifier classes
+#' added after the bundled lookup was last updated). Classes whose earlier
+#' WoRMS lookup failed (NA) are retried. The local diatom genus list
+#' (\code{identify_diatom_classes()}) is NOT applied here -- it can change
+#' within a session as custom classes are added, so it is applied at summary
+#' time instead.
 #'
 #' @param class_names Character vector of class names in use.
 #' @param cached_status Optional data.frame from a previous call, with
 #'   \code{class} and \code{worms_diatom} columns.
+#' @param taxa_lookup Optional taxa lookup data.frame; when it has a logical
+#'   \code{is_diatom} column, classes with a non-NA flag are resolved from it
+#'   without any WoRMS lookup.
 #' @return A data.frame with \code{class} and \code{worms_diatom} (logical,
 #'   NA when the lookup failed) covering all \code{class_names}.
 #' @export
-resolve_diatom_status <- function(class_names, cached_status = NULL) {
+resolve_diatom_status <- function(class_names, cached_status = NULL,
+                                  taxa_lookup = NULL) {
   classes <- unique(class_names[!is.na(class_names)])
 
   known <- data.frame(class = character(0), worms_diatom = logical(0),
                       stringsAsFactors = FALSE)
+  if (!is.null(taxa_lookup) && "is_diatom" %in% names(taxa_lookup)) {
+    flag <- as.logical(taxa_lookup$is_diatom)
+    keep <- !is.na(flag) & taxa_lookup$clean_names %in% classes
+    known <- data.frame(class = taxa_lookup$clean_names[keep],
+                        worms_diatom = flag[keep],
+                        stringsAsFactors = FALSE)
+  }
   if (!is.null(cached_status) && nrow(cached_status) > 0) {
-    known <- cached_status[!is.na(cached_status$worms_diatom) &
-                             cached_status$class %in% classes, , drop = FALSE]
+    cached <- cached_status[!is.na(cached_status$worms_diatom) &
+                              cached_status$class %in% classes &
+                              !cached_status$class %in% known$class, ,
+                            drop = FALSE]
+    known <- rbind(known, cached)
   }
 
   new_classes <- setdiff(classes, known$class)
@@ -245,7 +265,8 @@ summarize_biovolumes_cached <- function(cache, classifications, taxa_lookup,
                                         diatom_status = NULL,
                                         custom_classes = NULL) {
   if (is.null(diatom_status)) {
-    diatom_status <- resolve_diatom_status(unique(classifications$class_name))
+    diatom_status <- resolve_diatom_status(unique(classifications$class_name),
+                                           taxa_lookup = taxa_lookup)
   }
 
   micron_factor <- 1 / pixels_per_micron
@@ -274,9 +295,10 @@ summarize_biovolumes_cached <- function(cache, classifications, taxa_lookup,
 
   joined$biovolume_um3 <- joined$biovolume_px * micron_factor^3
 
-  # Diatom status: WoRMS result (NA = lookup failed -> non-diatom), extended
-  # by the local genus pattern list and custom classes flagged as diatoms --
-  # the same override iRfcb applies via its diatom_include argument.
+  # Diatom status: resolved per class from the taxa lookup or WoRMS (NA =
+  # lookup failed -> non-diatom), extended by the local genus pattern list
+  # and custom classes flagged as diatoms -- the same override iRfcb applies
+  # via its diatom_include argument.
   diatom_include <- identify_diatom_classes(taxa_lookup, custom_classes)
   worms <- diatom_status$worms_diatom[match(joined$class, diatom_status$class)]
   is_diatom <- (!is.na(worms) & worms) | joined$class %in% diatom_include
@@ -350,7 +372,8 @@ recompute_biovolume_data <- function(rv, config, taxa_lookup,
   }
 
   status <- resolve_diatom_status(unique(rv$classifications$class_name),
-                                  cached_status = rv$diatom_status)
+                                  cached_status = rv$diatom_status,
+                                  taxa_lookup = taxa_lookup)
   rv$diatom_status <- status
 
   summarize_biovolumes_cached(

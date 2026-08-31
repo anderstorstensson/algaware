@@ -4,22 +4,29 @@
 \alias{resolve_diatom_status}
 \title{Resolve per-class diatom status, reusing cached lookups}
 \usage{
-resolve_diatom_status(class_names, cached_status = NULL)
+resolve_diatom_status(class_names, cached_status = NULL, taxa_lookup = NULL)
 }
 \arguments{
 \item{class_names}{Character vector of class names in use.}
 
 \item{cached_status}{Optional data.frame from a previous call, with
 \code{class} and \code{worms_diatom} columns.}
+
+\item{taxa_lookup}{Optional taxa lookup data.frame; when it has a logical
+\code{is_diatom} column, classes with a non-NA flag are resolved from it
+without any WoRMS lookup.}
 }
 \value{
 A data.frame with \code{class} and \code{worms_diatom} (logical,
 NA when the lookup failed) covering all \code{class_names}.
 }
 \description{
-Combines a previously resolved status table with WoRMS lookups for classes
-not seen before. Classes whose earlier lookup failed (NA) are retried.
-The local diatom genus list (\code{identify_diatom_classes()}) is NOT
-applied here -- it can change within a session as custom classes are added,
-so it is applied at summary time instead.
+Resolution order per class: the curated \code{is_diatom} column of the
+taxa lookup (no network), then a previously resolved status table, then a
+WoRMS lookup for classes neither source covers (e.g. classifier classes
+added after the bundled lookup was last updated). Classes whose earlier
+WoRMS lookup failed (NA) are retried. The local diatom genus list
+(\code{identify_diatom_classes()}) is NOT applied here -- it can change
+within a session as custom classes are added, so it is applied at summary
+time instead.
 }

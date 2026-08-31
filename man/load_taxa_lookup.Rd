@@ -8,9 +8,12 @@ load_taxa_lookup()
 }
 \value{
 A data.frame with columns \code{clean_names}, \code{name},
-\code{AphiaID}.
+\code{sflag}, \code{AphiaID}, \code{HAB}, \code{warning_level},
+\code{italic}, \code{is_diatom}.
 }
 \description{
 Returns the pre-built mapping from classifier class names to WoRMS
-scientific names and AphiaIDs.
+scientific names and AphiaIDs, including the curated \code{is_diatom}
+flag that selects the carbon conversion formula (seeded once from WoRMS,
+with homonym genera such as \emph{Actinocyclus} corrected manually).
 }
