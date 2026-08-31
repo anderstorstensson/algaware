@@ -242,6 +242,25 @@ test_that("create_heatmap orders taxa by group when phyto_groups given", {
   expect_equal(y_levels, c("Aphanizomenon", "Dinophysis", "Skeletonema"))
 })
 
+test_that("create_heatmap facet column carries no names", {
+  # A *named* phyto_group factor ends up in Shiny's plot coordmap, where
+  # jsonlite emits an asJSON(keep_vec_names) deprecation message per facet
+  # panel on every render (and would serialize wrongly in future jsonlite).
+  wide <- data.frame(
+    scientific_name = c("Dinophysis", "Skeletonema"),
+    `STN1_2022-01-01` = c(100, 1),
+    check.names = FALSE,
+    stringsAsFactors = FALSE
+  )
+  groups <- data.frame(
+    name = c("Dinophysis", "Skeletonema"),
+    phyto_group = c("Dinoflagellates", "Diatoms"),
+    stringsAsFactors = FALSE
+  )
+  p <- create_heatmap(wide, phyto_groups = groups, title = "Test")
+  expect_null(names(p$data$phyto_group))
+})
+
 test_that("create_heatmap keeps biovolume ordering without phyto_groups", {
   wide <- data.frame(
     scientific_name = c("Low", "High"),

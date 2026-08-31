@@ -2,6 +2,12 @@
 
 ## Bug fixes
 
+- The heatmap's phytoplankton-group facet column was a *named* factor (names
+  leaked from the group lookup), which Shiny serialized into the plot
+  coordmap and jsonlite flagged with one "asJSON(keep_vec_names=TRUE)"
+  deprecation message per facet panel on every render of the Plots tab.
+  The names are now stripped; the console noise is gone and the coordmap
+  stays a JSON object under future jsonlite versions.
 - The per-class diatom decision (which selects the diatom vs non-diatom
   carbon conversion formula) is now driven by a curated `is_diatom` column
   in the bundled taxa lookup, seeded once from WoRMS and cross-checked
