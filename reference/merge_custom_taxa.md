@@ -18,8 +18,9 @@ merge_custom_taxa(taxa_lookup, custom_classes)
 
 - custom_classes:
 
-  Data frame with the same columns (except `warning_level`) plus
-  `is_diatom`. Custom entries receive `warning_level = NA`.
+  Data frame with the same columns (except `warning_level`); the
+  `is_diatom` flag is carried over. Custom entries receive
+  `warning_level = NA`.
 
 ## Value
 

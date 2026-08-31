@@ -223,6 +223,8 @@ Fetch data from IFCB Dashboard
 
 - [`fetch_dashboard_metadata()`](https://nodc-sweden.github.io/ifcb-algaware/reference/fetch_dashboard_metadata.md)
   : Fetch metadata from the IFCB Dashboard
+- [`clear_metadata_cache()`](https://nodc-sweden.github.io/ifcb-algaware/reference/clear_metadata_cache.md)
+  : Delete the metadata cache
 - [`fetch_image_counts()`](https://nodc-sweden.github.io/ifcb-algaware/reference/fetch_image_counts.md)
   : Fetch image count metadata from the IFCB Dashboard
 - [`filter_metadata()`](https://nodc-sweden.github.io/ifcb-algaware/reference/filter_metadata.md)
@@ -240,6 +242,14 @@ Process and aggregate IFCB data
   : Aggregate biovolume data per station visit
 - [`summarize_biovolumes()`](https://nodc-sweden.github.io/ifcb-algaware/reference/summarize_biovolumes.md)
   : Summarize biovolumes for classified bins
+- [`build_biovolume_cache()`](https://nodc-sweden.github.io/ifcb-algaware/reference/build_biovolume_cache.md)
+  : Build the per-ROI biovolume cache from downloaded files
+- [`summarize_biovolumes_cached()`](https://nodc-sweden.github.io/ifcb-algaware/reference/summarize_biovolumes_cached.md)
+  : Summarize biovolumes from the in-memory cache
+- [`recompute_biovolume_data()`](https://nodc-sweden.github.io/ifcb-algaware/reference/recompute_biovolume_data.md)
+  : Recompute biovolume data, using the session cache when available
+- [`resolve_diatom_status()`](https://nodc-sweden.github.io/ifcb-algaware/reference/resolve_diatom_status.md)
+  : Resolve per-class diatom status, reusing cached lookups
 - [`create_wide_summary()`](https://nodc-sweden.github.io/ifcb-algaware/reference/create_wide_summary.md)
   : Create wide-format summary for a region
 - [`parse_non_bio_classes()`](https://nodc-sweden.github.io/ifcb-algaware/reference/parse_non_bio_classes.md)

@@ -9,7 +9,13 @@ gallery display.
 ## Usage
 
 ``` r
-process_classifications(config, dirs, sample_ids, matched)
+process_classifications(
+  config,
+  dirs,
+  sample_ids,
+  matched,
+  cached_diatom_status = NULL
+)
 ```
 
 ## Arguments
@@ -30,6 +36,13 @@ process_classifications(config, dirs, sample_ids, matched)
 - matched:
 
   Data frame of station-matched metadata.
+
+- cached_diatom_status:
+
+  Optional data.frame from a previous
+  [`resolve_diatom_status()`](https://nodc-sweden.github.io/ifcb-algaware/reference/resolve_diatom_status.md)
+  call (e.g. an earlier load in the same session), so already-resolved
+  classes skip the WoRMS lookup.
 
 ## Value
 

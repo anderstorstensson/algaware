@@ -35,7 +35,7 @@ footer {
 
     <a class="navbar-brand me-2" href="../index.html">algaware</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.3.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.3.1.9000</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -70,9 +70,26 @@ footer {
   <main id="main" class="col-md-9"><div class="page-header">
 
       <h1>Changelog</h1>
-      <small>Source: <a href="https://github.com/nodc-sweden/ifcb-algaware/blob/0.3.1/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
+      <small>Source: <a href="https://github.com/nodc-sweden/ifcb-algaware/blob/main/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="development version" id="algaware-development-version">algaware (development version)<a class="anchor" aria-label="anchor" href="#algaware-development-version"></a></h2>
+<div class="section level3">
+<h3 id="bug-fixes-development-version">Bug fixes<a class="anchor" aria-label="anchor" href="#bug-fixes-development-version"></a></h3>
+<ul><li>The heatmap’s phytoplankton-group facet column was a <em>named</em> factor (names leaked from the group lookup), which Shiny serialized into the plot coordmap and jsonlite flagged with one “asJSON(keep_vec_names=TRUE)” deprecation message per facet panel on every render of the Plots tab. The names are now stripped; the console noise is gone and the coordmap stays a JSON object under future jsonlite versions.</li>
+<li>The per-class diatom decision (which selects the diatom vs non-diatom carbon conversion formula) is now driven by a curated <code>is_diatom</code> column in the bundled taxa lookup, seeded once from WoRMS and cross-checked against the local genus list (<code>data-raw/seed_taxa_lookup_is_diatom.R</code>). Previously the decision relied on a live WoRMS lookup at load time with a hardcoded genus pattern list as fallback, so a WoRMS outage silently switched uncovered diatom classes to the non-diatom formula (roughly 3x higher carbon for typical diatom cell volumes). WoRMS is now only consulted for classes missing from the lookup, so carbon estimates for all bundled classes are deterministic and fully offline. Custom classes keep their “Is diatom” checkbox and are carried through <code><a href="../reference/merge_custom_taxa.html">merge_custom_taxa()</a></code>.</li>
+<li>Fixed the local diatom genus fallback list: matching is now case-insensitive (the lowercase <code>"rhizosolenia"</code> pattern previously matched nothing, leaving all <em>Rhizosolenia</em> classes dependent on WoRMS) and missing genera were added (<em>Asterionellopsis</em>, <em>Attheya</em>, <em>Bacillaria</em>, <em>Bacteriastrum</em>, <em>Cyclotella</em>, <em>Detonula</em>, <em>Entomoneis</em>, <em>Gyrosigma</em>, <em>Pleurosigma</em>, <em>Lithodesmium</em>, <em>Phaeodactylum</em>, <em>Pseudosolenia</em>, <em>Stephanopyxis</em>). The list now only serves as a safety net for classes without an <code>is_diatom</code> flag.</li>
+</ul></div>
+<div class="section level3">
+<h3 id="performance-development-version">Performance<a class="anchor" aria-label="anchor" href="#performance-development-version"></a></h3>
+<ul><li>Summary recomputation (report generation, sample exclusions, and the stale-summary refresh) now runs from an in-memory per-ROI biovolume cache built once when the data is loaded, instead of re-reading every feature CSV and <code>.hdr</code> file from disk each time. Per-class WoRMS diatom lookups are cached per session as well, so recomputing summaries after corrections is near-instant and works offline. The file-based path is kept as an automatic fallback when no cache is available.</li>
+<li>Fetching metadata is now incremental: the dashboard export is cached in local storage and subsequent fetches download only bins sampled on or after the newest cached day. A “Clear Metadata Cache” button in Settings makes the next fetch download the complete export again (use it when older bins were edited on the dashboard, e.g. skip flags or cruise numbers). The cache also resets automatically when the dashboard URL or dataset changes.</li>
+<li>Station descriptions in the report are now generated with parallel LLM requests on OpenAI, collapsing one round trip per station into roughly a single request’s latency. Gemini stays sequential because of its free-tier rate limit.</li>
+<li>Maps reuse a session-cached coastline polygon cropped to Swedish waters, and mosaic/report image extraction skips ROI PNGs already extracted earlier in the session, so repeated report generation is much faster.</li>
+<li>Raw data and feature downloads use larger parallel chunks with a much shorter inter-chunk delay (previously ~2 s of idle time per 5 files), tunable via <code>options(algaware.download_parallel, algaware.download_sleep)</code>.</li>
+</ul></div>
+</div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="0.3.1" id="algaware-031">algaware 0.3.1<a class="anchor" aria-label="anchor" href="#algaware-031"></a></h2>
 <div class="section level3">
