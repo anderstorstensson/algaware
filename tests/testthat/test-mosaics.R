@@ -14,6 +14,37 @@ test_that("compute_median_color handles errors gracefully", {
   expect_equal(result, "#F0F0F0")
 })
 
+test_that("compute_median_color indexes channels, not pixel rows", {
+  # A solid color with distinct R/G/B values: row-wise indexing of the
+  # transposed bitmap would mix channels and return a grey (#404040 here).
+  img <- magick::image_blank(10, 10, color = "#204060")
+  result <- algaware:::compute_median_color(list(img))
+  expect_equal(result, "#204060")
+})
+
+test_that("compute_median_color ignores bright top-edge artifacts", {
+  # Bright band across the top rows (as seen in some IFCB instruments) must
+  # not dominate the fill; the majority background color should win.
+  top <- magick::image_blank(10, 3, color = "#FFFFFF")
+  body <- magick::image_blank(10, 17, color = "#969696")
+  img <- magick::image_append(c(top, body), stack = TRUE)
+  result <- algaware:::compute_median_color(list(img))
+  expect_equal(result, "#969696")
+})
+
+test_that("compute_median_color survives fractional medians", {
+  # Two single-pixel images with adjacent grey levels give a median of x.5,
+  # which sprintf("%X") rejects; the result must be a rounded real color,
+  # not the #F0F0F0 error fallback.
+  imgs <- list(
+    magick::image_blank(1, 1, color = "#646464"),
+    magick::image_blank(1, 1, color = "#656565")
+  )
+  result <- algaware:::compute_median_color(imgs)
+  expect_match(result, "^#[0-9A-F]{6}$")
+  expect_false(result == "#F0F0F0")
+})
+
 test_that("create_mosaic works with real images", {
   tmp_dir <- file.path(tempdir(), paste0("mosaic_test_", Sys.getpid()))
   dir.create(tmp_dir, recursive = TRUE, showWarnings = FALSE)
@@ -411,4 +442,75 @@ test_that("create_mosaic handles 1-3 images without crashing", {
     result_default <- create_mosaic(paths[seq_len(n)])
     expect_s3_class(result_default, "magick-image")
   }
+})
+
+# -- extract_pngs_cached ------------------------------------------------------
+
+write_fake_png <- function(dir, samp, roi) {
+  d <- file.path(dir, samp)
+  dir.create(d, recursive = TRUE, showWarnings = FALSE)
+  path <- file.path(d, paste0(samp, "_", sprintf("%05d", roi), ".png"))
+  magick::image_write(magick::image_blank(2, 2, "white"), path,
+                      format = "png")
+  path
+}
+
+test_that("extract_pngs_cached skips extraction when all PNGs exist", {
+  out <- withr::local_tempdir()
+  samp <- "D20250714T110535_IFCB134"
+  write_fake_png(out, samp, 1L)
+  write_fake_png(out, samp, 2L)
+
+  extract_cached <- algaware:::extract_pngs_cached
+  mockery::stub(extract_cached, "extract_pngs_with_fallback",
+                function(...) stop("should not extract"))
+  expect_true(extract_cached(
+    file.path("raw", paste0(samp, ".roi")), out, c(1L, 2L)
+  ))
+})
+
+test_that("extract_pngs_cached extracts only missing ROIs", {
+  out <- withr::local_tempdir()
+  samp <- "D20250714T110535_IFCB134"
+  write_fake_png(out, samp, 1L)
+
+  requested <- NULL
+  extract_cached <- algaware:::extract_pngs_cached
+  mockery::stub(extract_cached, "extract_pngs_with_fallback",
+                function(roi_file, out_folder, roi_numbers, ...) {
+                  requested <<- roi_numbers
+                  TRUE
+                })
+  expect_true(extract_cached(
+    file.path("raw", paste0(samp, ".roi")), out, c(1L, 2L, 3L)
+  ))
+  expect_equal(requested, c(2L, 3L))
+})
+
+test_that("extract_pngs_cached clears cache when scale settings change", {
+  out <- withr::local_tempdir()
+  samp <- "D20250714T110535_IFCB134"
+
+  extract_cached <- algaware:::extract_pngs_cached
+  mockery::stub(extract_cached, "extract_pngs_with_fallback",
+                function(roi_file, out_folder, roi_numbers, ...) TRUE)
+  # First call writes the settings marker
+  extract_cached(paste0(samp, ".roi"), out, 1L,
+                 scale_micron_factor = 1 / 2.77)
+  cached_png <- write_fake_png(out, samp, 1L)
+  # Same settings: PNG survives
+  extract_cached(paste0(samp, ".roi"), out, 1L,
+                 scale_micron_factor = 1 / 2.77)
+  expect_true(file.exists(cached_png))
+  # Changed settings: cache is discarded and re-extraction requested
+  requested <- NULL
+  mockery::stub(extract_cached, "extract_pngs_with_fallback",
+                function(roi_file, out_folder, roi_numbers, ...) {
+                  requested <<- roi_numbers
+                  TRUE
+                })
+  extract_cached(paste0(samp, ".roi"), out, 1L,
+                 scale_micron_factor = 1 / 3.4)
+  expect_false(file.exists(cached_png))
+  expect_equal(requested, 1L)
 })

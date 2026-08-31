@@ -133,6 +133,20 @@ add_station_sections <- function(doc, station_summary,
   visits <- visits[order(coast_order, visits$visit_date,
                          visits$STATION_NAME), ]
 
+  # Generate all descriptions up front. The station prompts are independent
+  # of each other, so providers that allow it (OpenAI) run them in parallel:
+  # n sequential round trips collapse into roughly the latency of the
+  # slowest one. Assembly below stays sequential because the binomial
+  # abbreviation threads document order through the sections.
+  descriptions <- generate_station_descriptions(
+    visits, station_summary, taxa_lookup, use_llm,
+    phyto_groups = phyto_groups,
+    llm_provider = llm_provider,
+    on_llm_progress = on_llm_progress,
+    unclassified_fractions = unclassified_fractions,
+    chl_measure = chl_measure
+  )
+
   # Track species binomials already written in full so that repeats across
   # station descriptions are abbreviated (e.g. Nodularia spumigena -> N.
   # spumigena), following standard convention across the whole section.
@@ -150,31 +164,7 @@ add_station_sections <- function(doc, station_summary,
                              visits$visit_date[i])
     doc <- officer::body_add_par(doc, station_header, style = "heading 3")
 
-    description <- "[Write station description here.]"
-    if (use_llm) {
-      if (is.function(on_llm_progress)) {
-        on_llm_progress(visits$STATION_NAME_SHORT[i])
-      }
-      station_data <- station_summary[
-        station_summary$visit_id == visits$visit_id[i], ]
-      visit_unclass_pct <- unclassified_fractions[[visits$visit_id[i]]]
-      description <- tryCatch(
-        generate_station_description(station_data, taxa_lookup,
-                                     station_summary,
-                                     phyto_groups = phyto_groups,
-                                     provider = llm_provider,
-                                     unclassified_pct = visit_unclass_pct,
-                                     chl_measure = chl_measure),
-        error = function(e) {
-          warning("LLM station description failed for ",
-                  visits$STATION_NAME_SHORT[i], ": ", e$message,
-                  call. = FALSE)
-          "[Write station description here. (LLM generation failed)]"
-        }
-      )
-    }
-
-    abbreviated <- abbreviate_repeated_binomials(description, taxa_lookup,
+    abbreviated <- abbreviate_repeated_binomials(descriptions[i], taxa_lookup,
                                                  seen_binomials)
     seen_binomials <- abbreviated$seen
 
@@ -183,6 +173,73 @@ add_station_sections <- function(doc, station_summary,
     doc <- officer::body_add_par(doc, "")
   }
   doc
+}
+
+#' Generate the description text for every station visit
+#'
+#' Builds one prompt per visit and performs them through
+#' \code{call_llm_batch()}: concurrently on providers that support it,
+#' sequentially (with per-station progress) otherwise. A failed request
+#' yields the placeholder text and a warning for that station only,
+#' matching the previous per-station error handling.
+#'
+#' @param visits One row per station visit (from
+#'   \code{add_station_sections()}).
+#' @param station_summary Aggregated station data.
+#' @param taxa_lookup Optional taxa lookup table.
+#' @param use_llm Logical; FALSE returns placeholders without any request.
+#' @param phyto_groups,llm_provider,on_llm_progress Passed through from
+#'   \code{add_station_sections()}.
+#' @param unclassified_fractions Named list of unclassified percentages.
+#' @param chl_measure Chlorophyll measurement terminology key.
+#' @return Character vector of descriptions, one per visit row.
+#' @keywords internal
+generate_station_descriptions <- function(visits, station_summary,
+                                          taxa_lookup, use_llm,
+                                          phyto_groups = NULL,
+                                          llm_provider = NULL,
+                                          on_llm_progress = NULL,
+                                          unclassified_fractions = NULL,
+                                          chl_measure = "fluorescence") {
+  placeholder <- "[Write station description here.]"
+  failed <- "[Write station description here. (LLM generation failed)]"
+  if (!use_llm || nrow(visits) == 0) {
+    return(rep(placeholder, nrow(visits)))
+  }
+
+  prompts <- lapply(seq_len(nrow(visits)), function(i) {
+    station_data <- station_summary[
+      station_summary$visit_id == visits$visit_id[i], ]
+    build_station_description_prompts(
+      station_data, taxa_lookup,
+      all_stations_summary = station_summary,
+      phyto_groups = phyto_groups,
+      unclassified_pct = unclassified_fractions[[visits$visit_id[i]]],
+      chl_measure = chl_measure
+    )
+  })
+
+  parallel <- llm_supports_parallel(llm_provider)
+  if (parallel && is.function(on_llm_progress)) {
+    on_llm_progress(paste0(nrow(visits), " station descriptions (parallel)"))
+  }
+  results <- call_llm_batch(
+    prompts, provider = llm_provider,
+    on_progress = if (!parallel && is.function(on_llm_progress)) {
+      function(i, n) on_llm_progress(visits$STATION_NAME_SHORT[i])
+    }
+  )
+
+  vapply(seq_along(results), function(i) {
+    if (is.null(results[[i]]$error)) {
+      results[[i]]$text
+    } else {
+      warning("LLM station description failed for ",
+              visits$STATION_NAME_SHORT[i], ": ", results[[i]]$error,
+              call. = FALSE)
+      failed
+    }
+  }, character(1))
 }
 
 #' Add mosaic section to the report

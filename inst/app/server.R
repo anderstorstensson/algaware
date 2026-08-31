@@ -38,6 +38,8 @@ server <- function(input, output, session) {
     image_counts        = NULL,          # Per-sample image counts (cruise-wide)
     cruise_info         = "",            # Human-readable cruise description
     classifier_name     = NULL,          # Name of the AI classifier model
+    biovolume_cache     = NULL,          # Per-ROI biovolumes + sample volumes (immutable per load)
+    diatom_status       = NULL,          # Cached per-class WoRMS diatom lookups
 
     # -- Extended class list for relabeling --
     relabel_choices     = list(),         # Grouped choices for relabel dropdowns
@@ -200,14 +202,11 @@ server <- function(input, output, session) {
     tryCatch({
       non_bio <- parse_non_bio_classes(config$non_biological_classes)
       taxa_lookup <- merge_custom_taxa(rv$taxa_lookup, rv$custom_classes)
-      storage <- config$local_storage_path
 
-      biovolume_data <- summarize_biovolumes(
-        file.path(storage, "features"),
-        file.path(storage, "raw"),
-        rv$classifications, taxa_lookup, non_bio,
-        pixels_per_micron = config$pixels_per_micron,
-        custom_classes = rv$custom_classes
+      # In-memory recomputation from the per-ROI cache built at load time;
+      # falls back to re-reading feature/.hdr files only without a cache.
+      biovolume_data <- recompute_biovolume_data(
+        rv, config, taxa_lookup, non_bio
       )
 
       station_summary <- aggregate_station_data(

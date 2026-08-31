@@ -240,7 +240,8 @@ generate_report <- function(output_path, station_summary,
   doc <- officer::body_add_break(doc)
 
   n_stations <- length(unique(station_summary$visit_id))
-  llm_total <- 2L + n_stations
+  # Parallel providers perform all station descriptions as one progress step
+  llm_total <- if (llm_supports_parallel(llm_provider)) 3L else 2L + n_stations
   llm_step <- 0L
   report_progress <- function(detail) {
     llm_step <<- llm_step + 1L

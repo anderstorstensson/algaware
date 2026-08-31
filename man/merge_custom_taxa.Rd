@@ -12,8 +12,8 @@ merge_custom_taxa(taxa_lookup, custom_classes)
 \code{italic}.}
 
 \item{custom_classes}{Data frame with the same columns (except
-\code{warning_level}) plus \code{is_diatom}. Custom entries
-receive \code{warning_level = NA}.}
+\code{warning_level}); the \code{is_diatom} flag is carried over.
+Custom entries receive \code{warning_level = NA}.}
 }
 \value{
 A new data frame combining both inputs (without duplicates).

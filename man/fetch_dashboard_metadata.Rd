@@ -4,18 +4,34 @@
 \alias{fetch_dashboard_metadata}
 \title{Fetch metadata from the IFCB Dashboard}
 \usage{
-fetch_dashboard_metadata(dashboard_url, dataset_name = NULL)
+fetch_dashboard_metadata(
+  dashboard_url,
+  dataset_name = NULL,
+  cache_dir = NULL,
+  force_full = FALSE
+)
 }
 \arguments{
 \item{dashboard_url}{Dashboard base URL.}
 
 \item{dataset_name}{Dataset name (e.g. "RV_Svea").}
+
+\item{cache_dir}{Optional local storage directory for the metadata cache.
+NULL (default) disables caching and always downloads the full export.}
+
+\item{force_full}{If TRUE, ignore any cache and download the full export
+(the cache is still refreshed afterwards).}
 }
 \value{
-A list with \code{metadata} (data.frame) and \code{cruise_numbers}
-(character vector, possibly empty if no cruise column exists).
+A list with \code{metadata} (data.frame), \code{cruise_numbers}
+(character vector, possibly empty if no cruise column exists),
+\code{incremental} (logical; TRUE when a cached fetch was updated
+incrementally), and \code{n_new} (number of bins added or refreshed).
 }
 \description{
 Wraps \code{iRfcb::ifcb_download_dashboard_metadata()} and extracts
-available cruise numbers.
+available cruise numbers. When \code{cache_dir} is given, the download is
+cached there as an RDS file and subsequent fetches only download bins
+sampled on or after the newest cached day (see \code{R/metadata_cache.R}),
+which makes refetching a large archive a matter of seconds.
 }

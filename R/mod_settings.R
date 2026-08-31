@@ -136,6 +136,17 @@ mod_settings_server <- function(id, config) {
             shiny::h5("Storage & Classes"),
             shiny::textInput(ns("local_storage_path"), "Local Storage Path",
                              value = config$local_storage_path),
+            bslib::tooltip(
+              shiny::actionButton(ns("clear_metadata_cache"),
+                                  "Clear Metadata Cache",
+                                  class = "btn-outline-secondary btn-sm mb-2",
+                                  icon = shiny::icon("rotate")),
+              paste("Metadata fetches are incremental: only bins newer than",
+                    "the local cache are downloaded. Clearing the cache makes",
+                    "the next Fetch Metadata download the complete export",
+                    "again - use it when older bins were edited on the",
+                    "dashboard (e.g. skip flags or cruise numbers).")
+            ),
             shiny::textInput(ns("db_folder"),
                              "Database Folder (annotations.sqlite)",
                              value = config$db_folder),
@@ -165,6 +176,20 @@ mod_settings_server <- function(id, config) {
           )
         )
       ))
+    })
+
+    shiny::observeEvent(input$clear_metadata_cache, {
+      cleared <- clear_metadata_cache(config$local_storage_path)
+      if (isTRUE(cleared)) {
+        shiny::showNotification(
+          paste("Metadata cache cleared. The next 'Fetch Metadata' will",
+                "download the complete export."),
+          type = "message"
+        )
+      } else {
+        shiny::showNotification("No metadata cache to clear.",
+                                type = "message")
+      }
     })
 
     shiny::observeEvent(input$save_settings, {
