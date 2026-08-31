@@ -15,7 +15,9 @@ instead of a full re-read of the storage folder.
 }
 \details{
 The per-class diatom decision (which selects the carbon conversion formula)
-involves a WoRMS API lookup; it is cached per class in \code{rv$diatom_status}
-so only classes not seen before in the session trigger a lookup.
+comes from the curated \code{is_diatom} column of the taxa lookup; classes not
+covered there fall back to a WoRMS API lookup, cached per class in
+\code{rv$diatom_status} so only classes not seen before in the session trigger
+a network request.
 }
 \keyword{internal}

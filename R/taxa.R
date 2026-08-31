@@ -82,10 +82,13 @@ assign_phyto_groups <- function(scientific_names, aphia_ids = NULL,
 #' Load the bundled taxa lookup table
 #'
 #' Returns the pre-built mapping from classifier class names to WoRMS
-#' scientific names and AphiaIDs.
+#' scientific names and AphiaIDs, including the curated \code{is_diatom}
+#' flag that selects the carbon conversion formula (seeded once from WoRMS,
+#' with homonym genera such as \emph{Actinocyclus} corrected manually).
 #'
 #' @return A data.frame with columns \code{clean_names}, \code{name},
-#'   \code{AphiaID}.
+#'   \code{sflag}, \code{AphiaID}, \code{HAB}, \code{warning_level},
+#'   \code{italic}, \code{is_diatom}.
 #' @export
 load_taxa_lookup <- function() {
   lookup_file <- system.file("extdata", "taxa_lookup.csv",
@@ -152,8 +155,8 @@ build_relabel_choices <- function(db_class_list = character(0),
 #'   \code{name}, \code{AphiaID}, \code{HAB}, \code{warning_level},
 #'   \code{italic}.
 #' @param custom_classes Data frame with the same columns (except
-#'   \code{warning_level}) plus \code{is_diatom}. Custom entries
-#'   receive \code{warning_level = NA}.
+#'   \code{warning_level}); the \code{is_diatom} flag is carried over.
+#'   Custom entries receive \code{warning_level = NA}.
 #' @return A new data frame combining both inputs (without duplicates).
 #' @export
 merge_custom_taxa <- function(taxa_lookup, custom_classes) {
@@ -162,7 +165,7 @@ merge_custom_taxa <- function(taxa_lookup, custom_classes) {
   }
 
   keep_cols <- intersect(
-    c("clean_names", "name", "sflag", "AphiaID", "HAB", "italic"),
+    c("clean_names", "name", "sflag", "AphiaID", "HAB", "italic", "is_diatom"),
     names(custom_classes)
   )
 
@@ -174,12 +177,14 @@ merge_custom_taxa <- function(taxa_lookup, custom_classes) {
 
   if (nrow(new_entries) == 0) return(taxa_lookup)
 
-  # Ensure sflag and warning_level columns exist in both before binding.
-  # Custom classes never carry warning levels, so they receive NA.
+  # Ensure sflag, warning_level, and is_diatom columns exist in both before
+  # binding. Custom classes never carry warning levels, so they receive NA.
   if (!"sflag" %in% names(taxa_lookup)) taxa_lookup$sflag <- ""
   if (!"sflag" %in% names(new_entries)) new_entries$sflag <- ""
   if (!"warning_level" %in% names(taxa_lookup)) taxa_lookup$warning_level <- NA_real_
   if (!"warning_level" %in% names(new_entries)) new_entries$warning_level <- NA_real_
+  if (!"is_diatom" %in% names(taxa_lookup)) taxa_lookup$is_diatom <- NA
+  if (!"is_diatom" %in% names(new_entries)) new_entries$is_diatom <- NA
 
   rbind(taxa_lookup[, union(names(taxa_lookup), names(new_entries))],
         new_entries[, union(names(taxa_lookup), names(new_entries))])

@@ -153,7 +153,8 @@ process_classifications <- function(config, dirs, sample_ids, matched,
   # but kept in classifications for gallery display
   if (!is.null(biovolume_cache) && nrow(biovolume_cache$roi_biovolumes) > 0) {
     diatom_status <- resolve_diatom_status(unique(classifications$class_name),
-                                           cached_status = cached_diatom_status)
+                                           cached_status = cached_diatom_status,
+                                           taxa_lookup = taxa_lookup)
     biovolume_data <- summarize_biovolumes_cached(
       biovolume_cache, classifications, taxa_lookup, non_bio,
       pixels_per_micron = config$pixels_per_micron,

@@ -1,5 +1,28 @@
 # algaware (development version)
 
+## Bug fixes
+
+- The per-class diatom decision (which selects the diatom vs non-diatom
+  carbon conversion formula) is now driven by a curated `is_diatom` column
+  in the bundled taxa lookup, seeded once from WoRMS and cross-checked
+  against the local genus list (`data-raw/seed_taxa_lookup_is_diatom.R`).
+  Previously the decision relied on a live WoRMS lookup at load time with a
+  hardcoded genus pattern list as fallback, so a WoRMS outage silently
+  switched uncovered diatom classes to the non-diatom formula (roughly 3x
+  higher carbon for typical diatom cell volumes). WoRMS is now only
+  consulted for classes missing from the lookup, so carbon estimates for
+  all bundled classes are deterministic and fully offline. Custom classes
+  keep their "Is diatom" checkbox and are carried through
+  `merge_custom_taxa()`.
+- Fixed the local diatom genus fallback list: matching is now
+  case-insensitive (the lowercase `"rhizosolenia"` pattern previously
+  matched nothing, leaving all *Rhizosolenia* classes dependent on WoRMS)
+  and missing genera were added (*Asterionellopsis*, *Attheya*,
+  *Bacillaria*, *Bacteriastrum*, *Cyclotella*, *Detonula*, *Entomoneis*,
+  *Gyrosigma*, *Pleurosigma*, *Lithodesmium*, *Phaeodactylum*,
+  *Pseudosolenia*, *Stephanopyxis*). The list now only serves as a safety
+  net for classes without an `is_diatom` flag.
+
 ## Performance
 
 - Summary recomputation (report generation, sample exclusions, and the
